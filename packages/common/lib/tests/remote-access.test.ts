@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
 	chmodSync,
 	existsSync,
@@ -32,6 +33,8 @@ import {
 
 let configDir: string;
 const storePath = () => path.join( configDir, 'remote.json' );
+const readStore = () => JSON.parse( readFileSync( storePath(), 'utf8' ) );
+const sha256 = ( value: string ) => createHash( 'sha256' ).update( value ).digest( 'hex' );
 
 beforeEach( () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-remote-access-' ) );
@@ -252,6 +255,47 @@ describe( 'pairing codes', () => {
 		expect( await redeemPairingCode( { code: typed, ...phone } ) ).not.toBeNull();
 	} );
 
+	it( 'allows exactly the attempt limit of wrong guesses', async () => {
+		const { code } = await createPairingCode();
+		for ( let attempt = 0; attempt < PAIRING_MAX_FAILED_ATTEMPTS - 1; attempt += 1 ) {
+			expect( await redeemPairingCode( { code: 'WRONGWRONGWR', ...phone } ) ).toBeNull();
+		}
+		expect( await redeemPairingCode( { code, ...phone } ) ).not.toBeNull();
+	} );
+
+	it( 'counts a wrong attempt against every open code', async () => {
+		const first = await createPairingCode();
+		const second = await createPairingCode();
+		for ( let attempt = 0; attempt < PAIRING_MAX_FAILED_ATTEMPTS; attempt += 1 ) {
+			await redeemPairingCode( { code: 'WRONGWRONGWR', ...phone } );
+		}
+		expect( await redeemPairingCode( { code: first.code, ...phone } ) ).toBeNull();
+		expect( await redeemPairingCode( { code: second.code, ...phone } ) ).toBeNull();
+	} );
+
+	it( 'keeps several codes open at once', async () => {
+		const first = await createPairingCode();
+		await createPairingCode();
+		expect( await redeemPairingCode( { code: first.code, ...phone } ) ).not.toBeNull();
+	} );
+
+	it( 'redeems a code once when two requests race', async () => {
+		const { code } = await createPairingCode();
+		const results = await Promise.all( [
+			redeemPairingCode( { code, ...phone } ),
+			redeemPairingCode( { code, ...phone } ),
+		] );
+		expect( results.filter( ( result ) => result !== null ) ).toHaveLength( 1 );
+		expect( await listRemoteDevices() ).toHaveLength( 1 );
+	} );
+
+	it( 'stores only the hash of a code', async () => {
+		const { code } = await createPairingCode();
+		const [ entry ] = readStore().pairingCodes;
+		expect( Object.keys( entry ).sort() ).toEqual( [ 'codeHash', 'expiresAt', 'failedAttempts' ] );
+		expect( entry.codeHash ).toBe( sha256( code ) );
+	} );
+
 	it( 'formats a code in groups of four', () => {
 		expect( formatPairingCode( 'ABCDEFGH2345' ) ).toBe( 'ABCD-EFGH-2345' );
 	} );
@@ -300,6 +344,48 @@ describe( 'device tokens', () => {
 		} );
 		const [ device ] = await listRemoteDevices();
 		expect( device.name ).toBe( '[31mRed[0m phone' );
+	} );
+
+	it( 'stores only the hash of a token', async () => {
+		const { token } = await pair();
+		const [ device ] = readStore().devices;
+		expect( Object.keys( device ).sort() ).toEqual( [
+			'expiresAt',
+			'id',
+			'lastSeenAt',
+			'name',
+			'pairedAt',
+			'platform',
+			'tokenHash',
+		] );
+		expect( device.tokenHash ).toBe( sha256( token ) );
+	} );
+
+	it( 'is valid for 30 days', async () => {
+		const { token, expiresAt } = await pair( 1_000 );
+		expect( expiresAt ).toBe( 1_000 + DEVICE_TOKEN_TTL_MS );
+		expect( await authenticateDeviceToken( token, expiresAt - 1 ) ).not.toBeNull();
+	} );
+
+	it( 'revokes only the device it names', async () => {
+		const first = await pair();
+		const second = await pair();
+		await revokeRemoteDevice( first.deviceId );
+		expect( await authenticateDeviceToken( first.token, 2_000 ) ).toBeNull();
+		expect( ( await authenticateDeviceToken( second.token, 2_000 ) )?.id ).toBe( second.deviceId );
+	} );
+
+	it( 'leaves an expired device out of the list', async () => {
+		const { expiresAt } = await pair( 1_000 );
+		expect( await listRemoteDevices( expiresAt - 1 ) ).toHaveLength( 1 );
+		expect( await listRemoteDevices( expiresAt ) ).toEqual( [] );
+	} );
+
+	it( 'cuts a long device name to 80 characters', async () => {
+		const { code } = await createPairingCode();
+		await redeemPairingCode( { code, deviceName: 'x'.repeat( 100 ), platform: 'ios' } );
+		const [ device ] = await listRemoteDevices();
+		expect( device.name ).toBe( 'x'.repeat( 80 ) );
 	} );
 
 	it( 'lists devices without their token hash', async () => {
