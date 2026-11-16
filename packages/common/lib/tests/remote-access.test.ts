@@ -382,6 +382,17 @@ describe( 'device tokens', () => {
 		expect( device.name ).toBe( '[31mRed[0m phone' );
 	} );
 
+	it( 'strips format characters such as a right-to-left override from the device name', async () => {
+		const { code } = await createPairingCode();
+		await redeemPairingCode( {
+			code,
+			deviceName: 'Phone\u202E3gp.exe\u200B',
+			platform: 'ios',
+		} );
+		const [ device ] = await listRemoteDevices();
+		expect( device.name ).toBe( 'Phone3gp.exe' );
+	} );
+
 	it( 'stores only the hash of a token', async () => {
 		const { token } = await pair();
 		const [ device ] = readStore().devices;

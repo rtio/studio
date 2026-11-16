@@ -230,7 +230,7 @@ export async function redeemPairingCode(
 		const device = {
 			id: randomUUID(),
 			name: input.deviceName
-				.replace( /\p{Cc}/gu, '' )
+				.replace( /[\p{Cc}\p{Cf}]/gu, '' )
 				.trim()
 				.slice( 0, 80 ),
 			platform: input.platform,
