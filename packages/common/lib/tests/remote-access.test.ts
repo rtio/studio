@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+	chmodSync,
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -276,6 +284,47 @@ describe( 'device tokens', () => {
 		expect( await authenticateDeviceToken( token, 2_000 ) ).toBeNull();
 		expect( await revokeRemoteDevice( deviceId ) ).toBe( false );
 	} );
+
+	it( 'answers many parallel requests after an idle minute with a single write', async () => {
+		const { token } = await pair( 1_000 );
+		const later = 1_000 + 5 * 60 * 1000;
+		const results = await Promise.all(
+			Array.from( { length: 20 }, () => authenticateDeviceToken( token, later ) )
+		);
+		expect( results.every( ( device ) => device !== null ) ).toBe( true );
+		const { mtimeMs, ino } = statSync( storePath() );
+		expect( await authenticateDeviceToken( token, later ) ).not.toBeNull();
+		expect( statSync( storePath() ).mtimeMs ).toBe( mtimeMs );
+		expect( statSync( storePath() ).ino ).toBe( ino );
+	} );
+
+	it( 'writes the last-seen time at most once a minute', async () => {
+		const { token } = await pair( 1_000 );
+		const content = readFileSync( storePath(), 'utf8' );
+		await authenticateDeviceToken( token, 1_000 + 30_000 );
+		expect( readFileSync( storePath(), 'utf8' ) ).toBe( content );
+	} );
+
+	it( 'rejects a device revoked before its last-seen write and does not bring it back', async () => {
+		const { token, deviceId } = await pair( 1_000 );
+		await revokeRemoteDevice( deviceId );
+		expect( await authenticateDeviceToken( token, 1_000 + 5 * 60 * 1000 ) ).toBeNull();
+		expect( await listRemoteDevices( 1_000 + 5 * 60 * 1000 ) ).toEqual( [] );
+	} );
+
+	it.skipIf( process.platform === 'win32' || process.getuid?.() === 0 )(
+		'does not fail a valid token when the last-seen write fails',
+		async () => {
+			const { token, deviceId } = await pair( 1_000 );
+			chmodSync( configDir, 0o500 );
+			try {
+				const device = await authenticateDeviceToken( token, 1_000 + 5 * 60 * 1000 );
+				expect( device?.id ).toBe( deviceId );
+			} finally {
+				chmodSync( configDir, 0o700 );
+			}
+		}
+	);
 } );
 
 describe( 'running server record', () => {

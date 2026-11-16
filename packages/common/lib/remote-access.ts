@@ -242,6 +242,10 @@ export interface RemoteDevice {
 // Writing on every request would rewrite the file constantly.
 const LAST_SEEN_WRITE_INTERVAL_MS = 60 * 1000;
 
+// When this process last started a last-seen write, per device. Concurrent requests that read the
+// same stale value would otherwise each queue a write behind the lock.
+const lastSeenWrites = new Map< string, number >();
+
 function toRemoteDevice( stored: z.infer< typeof storedDeviceSchema > ): RemoteDevice {
 	return {
 		id: stored.id,
@@ -267,13 +271,28 @@ export async function authenticateDeviceToken(
 	if ( ! stored || stored.expiresAt <= now ) {
 		return null;
 	}
-	if ( now - stored.lastSeenAt >= LAST_SEEN_WRITE_INTERVAL_MS ) {
-		await updateRemoteAccess( ( current ) => {
-			const entry = current.devices.find( ( candidate ) => candidate.id === stored.id );
-			if ( entry ) {
-				entry.lastSeenAt = now;
+	const lastWriteStart = lastSeenWrites.get( stored.id );
+	if (
+		now - stored.lastSeenAt >= LAST_SEEN_WRITE_INTERVAL_MS &&
+		( lastWriteStart === undefined || now - lastWriteStart >= LAST_SEEN_WRITE_INTERVAL_MS )
+	) {
+		lastSeenWrites.set( stored.id, now );
+		try {
+			const found = await updateRemoteAccess( ( current ) => {
+				const entry = current.devices.find( ( candidate ) => candidate.id === stored.id );
+				if ( entry ) {
+					entry.lastSeenAt = Math.max( entry.lastSeenAt, now );
+				}
+				return !! entry;
+			} );
+			if ( ! found ) {
+				// Revoked while this request waited for the lock.
+				return null;
 			}
-		} );
+		} catch {
+			// A failed bookkeeping write must not fail a valid token.
+			return toRemoteDevice( stored );
+		}
 		return toRemoteDevice( { ...stored, lastSeenAt: now } );
 	}
 	return toRemoteDevice( stored );
