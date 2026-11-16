@@ -1,3 +1,5 @@
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
+import path from 'node:path';
 import { revokeRemoteDevice } from '@studio/common/lib/remote-access';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -63,6 +65,24 @@ describe( 'event streams of revoked devices', () => {
 		} finally {
 			firstStream.destroy();
 			secondStream.destroy();
+		}
+	} );
+
+	it( 'closes every stream when the store cannot be read', async () => {
+		const { token } = await pairDevice( test.server.port );
+		const stream = await openStream( test.server.port, token );
+		expect( stream.status ).toBe( 200 );
+		const storePath = path.join( test.configDir, 'remote.json' );
+		const movedAside = `${ storePath }.aside`;
+		renameSync( storePath, movedAside );
+		// A directory where the file should be makes every read fail with EISDIR.
+		mkdirSync( storePath );
+		try {
+			expect( await settlesWithin( stream.ended, 1000 ) ).toBe( true );
+		} finally {
+			rmSync( storePath, { recursive: true, force: true } );
+			renameSync( movedAside, storePath );
+			stream.destroy();
 		}
 	} );
 } );
