@@ -201,6 +201,12 @@ import {
 	openPath,
 	openUrl,
 } from './open-in-os';
+import {
+	createRemoteApiGuard,
+	registerRemoteRoutes,
+	REMOTE_EVENT_CHANNELS,
+	type RemoteModeInfo,
+} from './remote-mode';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
@@ -248,6 +254,10 @@ export interface LocalServerOptions {
 	// Host to bind. Defaults to loopback (127.0.0.1) — the server is
 	// unauthenticated and must not be reachable from the network.
 	host?: string;
+	// Remote mode: the server answers paired phones over the network. Only the
+	// routes in `remote-mode.ts` are reachable, each behind a device token, and
+	// the browser UI is not served.
+	remote?: RemoteModeInfo;
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
@@ -263,6 +273,9 @@ export interface LocalServerOptions {
 export interface LocalServer {
 	url: string;
 	port: number;
+	// Every route on the `/api` router, so tests can prove remote mode blocks
+	// the ones it does not list.
+	apiRoutes: Array< { method: string; path: string } >;
 	close(): Promise< void >;
 }
 
@@ -375,6 +388,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
+	const remote = options.remote;
+	if ( ! remote && ! isLoopbackHost( host ) ) {
+		throw new Error(
+			'The local server has no authentication and only listens on loopback. Use remote mode to listen on the network.'
+		);
+	}
 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
 	const authAttempts = createAuthAttemptStore();
@@ -398,6 +417,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const sseClients = new Set< Response >();
 	function sseSend( message: { channel: string; payload: unknown } ): void {
 		if ( sseClients.size === 0 ) {
+			return;
+		}
+		if ( remote && ! REMOTE_EVENT_CHANNELS.has( message.channel ) ) {
 			return;
 		}
 		const data = JSON.stringify( message );
@@ -483,7 +505,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
 	// browser through `_events`, listening on the socket kept for `studio ui`.
-	const [ cliEvents ] = execute( [ '_events', '--listener', 'ui' ], { output: 'capture' } );
+	const [ cliEvents ] = execute( [ '_events', '--listener', remote ? 'remote' : 'ui' ], {
+		output: 'capture',
+	} );
 	cliEvents.on( 'error', ( { error } ) => console.error( 'CLI events subscriber failed:', error ) );
 	cliEvents.on( 'data', ( { data } ) => {
 		const siteEvent = cliSiteEventSchema.safeParse( data );
@@ -515,7 +539,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
 	// this unauthenticated API same-origin, so on loopback only requests
 	// addressed to a local name get through.
-	if ( isLoopbackHost( host ) ) {
+	if ( ! remote && isLoopbackHost( host ) ) {
 		app.use( ( req: Request, res: Response, next ) => {
 			if ( ! LOCAL_HOSTNAMES.has( req.hostname ) ) {
 				res.status( 403 ).json( { error: 'Host not allowed' } );
@@ -542,6 +566,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	] );
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;
+		// A phone app sends no Origin. A request that has one comes from a web
+		// page, which has no business with remote mode.
+		if ( remote ) {
+			if ( origin ) {
+				res.status( 403 ).json( { error: 'Origin not allowed' } );
+				return;
+			}
+			next();
+			return;
+		}
 		if ( origin ) {
 			if ( ! allowedOrigins.has( origin ) ) {
 				res.status( 403 ).json( { error: 'Origin not allowed' } );
@@ -568,6 +602,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Chat attachments ride along as base64 in the JSON body; size the limit for
 	// the image cap (with base64 overhead) plus file metadata.
 	app.use( express.json( { limit: STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
+
+	if ( remote ) {
+		api.use( createRemoteApiGuard() );
+		registerRemoteRoutes( app, api, remote );
+	}
 
 	api.get( '/events', ( req: Request, res: Response ) => {
 		res.setHeader( 'Content-Type', 'text/event-stream' );
@@ -2472,15 +2511,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// OAuth redirect target for the browser login flow (registered before the SPA
 	// fallback so it isn't swallowed by it).
-	app.get( '/auth/callback', ( _req: Request, res: Response ) => {
-		res.setHeader( 'Content-Type', 'text/html; charset=utf-8' );
-		res.send( AUTH_CALLBACK_HTML );
-	} );
+	if ( ! remote ) {
+		app.get( '/auth/callback', ( _req: Request, res: Response ) => {
+			res.setHeader( 'Content-Type', 'text/html; charset=utf-8' );
+			res.send( AUTH_CALLBACK_HTML );
+		} );
+	}
 
 	// --- Web UI ---------------------------------------------------------------
 	const uiIndex = uiDist ? path.join( uiDist, 'index.local.html' ) : undefined;
 	const hasUi = !! uiIndex && existsSync( uiIndex );
-	if ( uiDist && hasUi ) {
+	if ( ! remote && uiDist && hasUi ) {
 		app.use( express.static( uiDist ) );
 		// SPA fallback: the app uses real-path routing, so any unmatched HTML
 		// navigation reloads into the app shell. API routes keep precedence.
@@ -2508,11 +2549,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	const address = server.address();
 	const listeningPort = typeof address === 'object' && address ? address.port : port;
-	const url = `http://localhost:${ listeningPort }`;
+	const url = `http://${ remote ? host : 'localhost' }:${ listeningPort }`;
+	const apiLayers = api.stack as Array< { route?: { path: string; methods: object } } >;
+	const apiRoutes = apiLayers.flatMap( ( { route } ) =>
+		route
+			? Object.keys( route.methods ).map( ( method ) => ( {
+					method: method.toUpperCase(),
+					path: String( route.path ),
+			  } ) )
+			: []
+	);
 
 	return {
 		url,
 		port: listeningPort,
+		apiRoutes,
 		async close() {
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
