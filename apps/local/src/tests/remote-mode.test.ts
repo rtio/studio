@@ -8,7 +8,7 @@ import {
 	startRemoteTestServer,
 	type RequestOptions,
 	type TestRemoteServer,
-} from './remote-test-utils';
+} from './utils/remote-test-utils';
 
 let test: TestRemoteServer;
 let server: LocalServer;

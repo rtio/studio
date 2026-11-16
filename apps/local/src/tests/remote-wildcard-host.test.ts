@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { startLocalServer } from '../index';
-import { baseServerOptions } from './remote-test-utils';
+import { baseServerOptions } from './utils/remote-test-utils';
 
 describe( 'remote mode with a wildcard host', () => {
 	it.each( [ '0.0.0.0', '::', '0:0:0:0:0:0:0:0', '' ] )(

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { request, startRemoteTestServer, type TestRemoteServer } from './remote-test-utils';
+import { request, startRemoteTestServer, type TestRemoteServer } from './utils/remote-test-utils';
 
 let test: TestRemoteServer;
 

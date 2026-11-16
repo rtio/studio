@@ -7,7 +7,7 @@ import {
 	request,
 	startRemoteTestServer,
 	type TestRemoteServer,
-} from './remote-test-utils';
+} from './utils/remote-test-utils';
 
 const GUARD_MESSAGE = 'Remote mode accepts a text prompt only, without attachments';
 

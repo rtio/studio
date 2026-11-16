@@ -6,7 +6,7 @@ import {
 	settlesWithin,
 	startRemoteTestServer,
 	type TestRemoteServer,
-} from './remote-test-utils';
+} from './utils/remote-test-utils';
 
 let test: TestRemoteServer;
 

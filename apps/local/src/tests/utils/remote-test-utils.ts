@@ -3,7 +3,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createPairingCode } from '@studio/common/lib/remote-access';
-import { startLocalServer, type LocalServer, type LocalServerOptions } from '../index';
+import { startLocalServer, type LocalServer, type LocalServerOptions } from '../../index';
 
 export interface Reply {
 	status: number;
