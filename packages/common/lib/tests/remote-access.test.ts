@@ -242,6 +242,16 @@ describe( 'pairing codes', () => {
 		expect( statSync( storePath() ).ino ).toBe( ino );
 	} );
 
+	it( 'accepts look-alike characters: o for 0, i and l for 1', async () => {
+		let code = '';
+		for ( let attempt = 0; attempt < 50 && ! /[01]/.test( code ); attempt += 1 ) {
+			code = ( await createPairingCode() ).code;
+		}
+		expect( code ).toMatch( /[01]/ );
+		const typed = code.replace( /0/g, 'o' ).replace( /1/g, 'l' );
+		expect( await redeemPairingCode( { code: typed, ...phone } ) ).not.toBeNull();
+	} );
+
 	it( 'formats a code in groups of four', () => {
 		expect( formatPairingCode( 'ABCDEFGH2345' ) ).toBe( 'ABCD-EFGH-2345' );
 	} );

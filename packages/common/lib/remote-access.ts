@@ -161,7 +161,8 @@ function hashesMatch( a: string, b: string ): boolean {
 }
 
 function normalizePairingCode( code: string ): string {
-	return code.replace( /[\s-]/g, '' ).toUpperCase();
+	// Crockford decoding: O reads as 0, and I and L read as 1.
+	return code.replace( /[\s-]/g, '' ).toUpperCase().replace( /O/g, '0' ).replace( /[IL]/g, '1' );
 }
 
 export function formatPairingCode( code: string ): string {
