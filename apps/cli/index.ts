@@ -280,6 +280,7 @@ async function main() {
 				import( 'cli/commands/remote/devices' ),
 			] );
 
+			remoteYargs.option( 'path', { hidden: true } );
 			registerRemoteStartCommand( remoteYargs );
 			registerRemotePairCommand( remoteYargs );
 			registerRemoteDevicesCommand( remoteYargs );
