@@ -288,6 +288,8 @@ const DEFAULT_PORT = 8081;
 
 const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
 
+const WILDCARD_HOSTS: ReadonlySet< string > = new Set( [ '', '0.0.0.0', '::', '0:0:0:0:0:0:0:0' ] );
+
 function isLoopbackHost( host: string ): boolean {
 	return (
 		host === 'localhost' ||
@@ -398,6 +400,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
 	const remote = options.remote;
+	// Remote mode prints one address in its QR code, so it cannot listen on all of them.
+	if ( remote && WILDCARD_HOSTS.has( host ) ) {
+		throw new Error( 'Remote mode needs one address to listen on, not a wildcard.' );
+	}
 	if ( ! remote && ! isLoopbackHost( host ) ) {
 		throw new Error(
 			'The local server has no authentication and only listens on loopback. Use remote mode to listen on the network.'
