@@ -2576,6 +2576,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.status( status ).json( { error: 'Bad request' } );
 			return;
 		}
+		if ( remote ) {
+			// Store errors carry filesystem paths, and unauthenticated callers can trigger them.
+			console.error( 'Remote mode request failed:', err );
+			res.status( 500 ).json( { error: 'Internal error' } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );
