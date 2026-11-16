@@ -1,7 +1,12 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { request, startRemoteTestServer, type TestRemoteServer } from './remote-test-utils';
+import {
+	pairDevice,
+	request,
+	startRemoteTestServer,
+	type TestRemoteServer,
+} from './remote-test-utils';
 
 let test: TestRemoteServer;
 let storePath: string;
@@ -43,5 +48,18 @@ describe( 'a store that cannot be read', () => {
 		expect( reply.status ).toBe( 500 );
 		expect( reply.text ).not.toContain( test.configDir );
 		expect( reply.json ).toEqual( { error: 'Internal error' } );
+	} );
+
+	it( 'fails closed on a store written by a newer build', async () => {
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		const { token } = await pairDevice( test.server.port );
+		expect( ( await request( test.server.port, { path: '/api/health', token } ) ).status ).toBe(
+			200
+		);
+
+		writeFileSync( storePath, JSON.stringify( { version: 2, instanceId: 'x', devices: [] } ) );
+
+		const reply = await request( test.server.port, { path: '/api/health', token } );
+		expect( reply.status ).toBe( 500 );
 	} );
 } );

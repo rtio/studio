@@ -55,6 +55,7 @@ describe( 'remote mode', () => {
 
 	it( 'reports the bound host in its address', () => {
 		expect( server.url ).toBe( `http://127.0.0.1:${ server.port }` );
+		expect( server.url ).not.toContain( 'localhost' );
 	} );
 
 	it( 'brackets an IPv6 host in its address', async ( context ) => {
@@ -159,6 +160,68 @@ describe( 'remote mode', () => {
 			const reply = await request( { path: '/api/health', headers: { authorization } } );
 			expect( reply.status ).toBe( 401 );
 		}
+	} );
+
+	// Written out by hand, so widening the allowlist cannot also widen this table.
+	it.each( [
+		[ 'DELETE', '/api/remote/devices/current' ],
+		[ 'GET', '/api/health' ],
+		[ 'GET', '/api/sites' ],
+		[ 'GET', '/api/sessions' ],
+		[ 'POST', '/api/sessions' ],
+		[ 'GET', '/api/sessions/abc' ],
+		[ 'POST', '/api/sessions/abc/messages' ],
+		[ 'GET', '/api/runs/active' ],
+		[ 'POST', '/api/runs/run-1/interrupt' ],
+		[ 'POST', '/api/runs/run-1/answer' ],
+		[ 'GET', '/api/events' ],
+	] )( 'answers 401 to %s %s without a valid token', async ( method, path ) => {
+		const body = method === 'POST' ? { prompt: 'hello' } : undefined;
+		expect( ( await request( { method, path, body } ) ).status ).toBe( 401 );
+		expect( ( await request( { method, path, body, token: 'A'.repeat( 43 ) } ) ).status ).toBe(
+			401
+		);
+	} );
+
+	it( 'registers exactly the allowed routes it lets a phone reach', () => {
+		const allowed = server.apiRoutes
+			.filter( ( route ) =>
+				isRemoteRouteAllowed( route.method, route.path.replace( /:[A-Za-z]+/g, 'x' ) )
+			)
+			.map( ( route ) => `${ route.method } ${ route.path }` );
+		expect( allowed.sort() ).toEqual(
+			[
+				'POST /remote/pair',
+				'DELETE /remote/devices/current',
+				'GET /health',
+				'GET /sites',
+				'GET /sessions',
+				'POST /sessions',
+				'GET /sessions/:id',
+				'POST /sessions/:id/messages',
+				'GET /runs/active',
+				'POST /runs/:runId/interrupt',
+				'POST /runs/:runId/answer',
+				'GET /events',
+			].sort()
+		);
+	} );
+
+	it( 'rejects an Origin that studio ui allows', async () => {
+		const origin = 'http://localhost:5400';
+		expect( ( await request( { path: '/api/health', token, origin } ) ).status ).toBe( 403 );
+		expect( ( await request( { path: '/.well-known/studio/remote', origin } ) ).status ).toBe(
+			403
+		);
+	} );
+
+	it( 'answers a request addressed to a non-local host name', async () => {
+		const reply = await request( {
+			path: '/api/health',
+			token,
+			headers: { host: 'phone.example:1234' },
+		} );
+		expect( reply.status ).toBe( 200 );
 	} );
 
 	it( 'answers 403 for every registered route outside the allowlist', async () => {
