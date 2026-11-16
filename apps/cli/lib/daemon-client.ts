@@ -51,6 +51,7 @@ function eventsSocketPath( name: string ): string {
 export const EVENTS_SOCKET_PATHS = {
 	desktop: eventsSocketPath( 'events' ),
 	ui: eventsSocketPath( 'events-ui' ),
+	remote: eventsSocketPath( 'events-remote' ),
 } as const;
 
 // `studio mcp` runs once per agent session, so each process gets its own events

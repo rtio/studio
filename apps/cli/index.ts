@@ -338,7 +338,7 @@ async function main() {
 			builder: ( yargs ) =>
 				yargs.option( 'listener', {
 					type: 'string',
-					choices: [ 'desktop', 'ui', 'mcp' ] as const,
+					choices: [ 'desktop', 'ui', 'remote', 'mcp' ] as const,
 					default: 'desktop' as const,
 					hidden: true,
 				} ),
