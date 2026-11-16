@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	authenticateDeviceToken,
 	buildPairingUrl,
+	clearPairingCodes,
 	clearRemoteServerInfo,
 	createPairingCode,
 	DEVICE_TOKEN_TTL_MS,
@@ -221,6 +222,20 @@ describe( 'pairing codes', () => {
 		const { code, expiresAt } = await createPairingCode( 1_000 );
 		expect( code ).toMatch( /^[0-9A-HJKMNP-TV-Z]{12}$/ );
 		expect( expiresAt ).toBe( 1_000 + PAIRING_CODE_TTL_MS );
+	} );
+
+	it( 'drops every open code and keeps the paired devices', async () => {
+		const paired = await createPairingCode();
+		await redeemPairingCode( { code: paired.code, ...phone } );
+		const first = await createPairingCode();
+		const second = await createPairingCode();
+
+		await clearPairingCodes();
+
+		expect( await redeemPairingCode( { code: first.code, ...phone } ) ).toBeNull();
+		expect( await redeemPairingCode( { code: second.code, ...phone } ) ).toBeNull();
+		expect( readStore().pairingCodes ).toEqual( [] );
+		expect( await listRemoteDevices() ).toHaveLength( 1 );
 	} );
 
 	it( 'never stores the code itself', async () => {

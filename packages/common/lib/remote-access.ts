@@ -184,6 +184,14 @@ export async function createPairingCode(
 	return { code, expiresAt };
 }
 
+// Codes outlive the server that printed them, so remote mode drops the open ones
+// when it starts and when it stops.
+export async function clearPairingCodes(): Promise< void > {
+	await updateRemoteAccess( ( state ) => {
+		state.pairingCodes = [];
+	} );
+}
+
 export interface PairedDevice {
 	token: string;
 	deviceId: string;

@@ -28,7 +28,7 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 			{ startLocalServer },
 			{ getSessionsDirectory },
 			{ STUDIO_SITES_ROOT },
-			{ clearRemoteServerInfo, readRemoteServerInfo, setRemoteServerInfo },
+			{ clearPairingCodes, clearRemoteServerInfo, readRemoteServerInfo, setRemoteServerInfo },
 		] = await Promise.all( [
 			import( '@studio/local' ),
 			import( '@studio/common/lib/well-known-paths' ),
@@ -44,6 +44,9 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 			);
 			return;
 		}
+
+		// A code left from an earlier run must not work on this one.
+		await clearPairingCodes();
 
 		const server = await startLocalServer( {
 			cliBinary: process.env.STUDIO_CLI_BIN ?? process.argv[ 1 ],
@@ -74,7 +77,9 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 		console.log( __( 'Press Ctrl+C to stop.' ) );
 
 		const shutdown = () => {
-			void clearRemoteServerInfo( process.pid )
+			void clearPairingCodes()
+				.catch( () => undefined )
+				.then( () => clearRemoteServerInfo( process.pid ) )
 				.catch( () => undefined )
 				.then( () => server.close() )
 				.finally( () => process.exit( 0 ) );
