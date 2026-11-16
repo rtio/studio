@@ -1,5 +1,6 @@
 import os from 'os';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { isProcessAlive } from 'cli/lib/daemon-client';
 import { getDefaultLanAddress } from 'cli/lib/network-address';
 import { printPairingCode } from 'cli/lib/remote-pairing';
 import { Logger, LoggerError } from 'cli/logger';
@@ -27,13 +28,22 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 			{ startLocalServer },
 			{ getSessionsDirectory },
 			{ STUDIO_SITES_ROOT },
-			{ clearRemoteServerInfo, setRemoteServerInfo },
+			{ clearRemoteServerInfo, readRemoteServerInfo, setRemoteServerInfo },
 		] = await Promise.all( [
 			import( '@studio/local' ),
 			import( '@studio/common/lib/well-known-paths' ),
 			import( 'cli/lib/site-paths' ),
 			import( '@studio/common/lib/remote-access' ),
 		] );
+
+		// Two servers would overwrite each other's record and share one events socket.
+		const running = await readRemoteServerInfo();
+		if ( running && isProcessAlive( running.pid ) ) {
+			logger.reportError(
+				new LoggerError( sprintf( __( 'Remote mode is already running at %s.' ), running.url ) )
+			);
+			return;
+		}
 
 		const server = await startLocalServer( {
 			cliBinary: process.env.STUDIO_CLI_BIN ?? process.argv[ 1 ],

@@ -1,17 +1,9 @@
 import { readRemoteServerInfo } from '@studio/common/lib/remote-access';
 import { __ } from '@wordpress/i18n';
+import { isProcessAlive } from 'cli/lib/daemon-client';
 import { printPairingCode } from 'cli/lib/remote-pairing';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-function isProcessAlive( pid: number ): boolean {
-	try {
-		process.kill( pid, 0 );
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 export async function runCommand(): Promise< void > {
 	const logger = new Logger< string >();
