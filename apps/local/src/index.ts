@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -287,7 +288,11 @@ const DEFAULT_PORT = 8081;
 const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
 
 function isLoopbackHost( host: string ): boolean {
-	return host === 'localhost' || host === '::1' || host.startsWith( '127.' );
+	return (
+		host === 'localhost' ||
+		host === '::1' ||
+		( net.isIPv4( host ) && host.split( '.' )[ 0 ] === '127' )
+	);
 }
 
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
@@ -2592,7 +2597,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	const address = server.address();
 	const listeningPort = typeof address === 'object' && address ? address.port : port;
-	const url = `http://${ remote ? host : 'localhost' }:${ listeningPort }`;
+	const urlHost = host.includes( ':' ) ? `[${ host }]` : host;
+	const url = `http://${ remote ? urlHost : 'localhost' }:${ listeningPort }`;
 	const apiLayers = api.stack as Array< { route?: { path: string; methods: object } } >;
 	const apiRoutes = apiLayers.flatMap( ( { route } ) =>
 		route

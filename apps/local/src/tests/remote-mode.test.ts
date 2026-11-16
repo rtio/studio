@@ -30,10 +30,51 @@ function request( options: RequestOptions ) {
 }
 
 describe( 'remote mode', () => {
+	// A regression here would leave an unauthenticated listener open, so a server
+	// that starts anyway is closed before the assertion fails.
+	async function expectRefusal( host: string ) {
+		let started: LocalServer | undefined;
+		let error: unknown;
+		try {
+			started = await startLocalServer( { ...baseServerOptions, host } );
+		} catch ( caught ) {
+			error = caught;
+		}
+		await started?.close();
+		expect( started?.url ).toBeUndefined();
+		expect( String( error ) ).toMatch( /remote mode/i );
+	}
+
 	it( 'refuses to listen on the network without remote mode', async () => {
-		await expect( startLocalServer( { ...baseServerOptions, host: '0.0.0.0' } ) ).rejects.toThrow(
-			/remote mode/i
-		);
+		await expectRefusal( '0.0.0.0' );
+	} );
+
+	it( 'refuses a host name that only looks like loopback', async () => {
+		await expectRefusal( '127.example.com' );
+	} );
+
+	it( 'reports the bound host in its address', () => {
+		expect( server.url ).toBe( `http://127.0.0.1:${ server.port }` );
+	} );
+
+	it( 'brackets an IPv6 host in its address', async ( context ) => {
+		let ipv6: LocalServer;
+		try {
+			ipv6 = await startLocalServer( {
+				...baseServerOptions,
+				host: '::1',
+				remote: { label: 'Test Mac', studioVersion: '0.0.0-test' },
+			} );
+		} catch {
+			// No IPv6 loopback on this machine.
+			context.skip();
+			return;
+		}
+		try {
+			expect( ipv6.url ).toBe( `http://[::1]:${ ipv6.port }` );
+		} finally {
+			await ipv6.close();
+		}
 	} );
 
 	it( 'describes itself without auth', async () => {
