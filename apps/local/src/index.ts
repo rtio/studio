@@ -255,8 +255,8 @@ export interface LocalServerOptions {
 	sitesRoot: string;
 	// Port to listen on. Defaults to STUDIO_LOCAL_SERVER_PORT or 8081.
 	port?: number;
-	// Host to bind. Defaults to loopback (127.0.0.1) — the server is
-	// unauthenticated and must not be reachable from the network.
+	// Host to bind. Defaults to loopback (127.0.0.1). Without `remote` the server
+	// is unauthenticated and must not be reachable from the network.
 	host?: string;
 	// Remote mode: the server answers paired phones over the network. Only the
 	// routes in `remote-mode.ts` are reachable, each behind a device token, and
@@ -526,7 +526,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
-	// browser through `_events`, listening on the socket kept for `studio ui`.
+	// browser (or the phone, in remote mode) through `_events`, listening on the
+	// socket kept for `studio ui` or, in remote mode, the one of its own.
 	const [ cliEvents ] = execute( [ '_events', '--listener', remote ? 'remote' : 'ui' ], {
 		output: 'capture',
 	} );
@@ -578,10 +579,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} );
 	}
 
-	// Restrict cross-origin access to the known `studio ui` origins. The server is
-	// loopback-only, but loopback is reachable from any page in the user's
-	// browser, so reflecting arbitrary origins would let any website call this
-	// unauthenticated API (read data, or trigger state changes). Requests with no
+	// Restrict cross-origin access to the known `studio ui` origins. Without
+	// `remote` the server is loopback-only and unauthenticated, but loopback is
+	// reachable from any page in the user's browser, so reflecting arbitrary
+	// origins would let any website call this API (read data, or trigger state
+	// changes). Requests with no
 	// Origin (same-origin navigations, the served SPA's same-origin fetches, curl,
 	// SSE) pass through; a present-but-disallowed Origin is rejected outright.
 	const allowedOrigins = new Set( [
