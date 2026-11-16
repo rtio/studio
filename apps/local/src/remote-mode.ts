@@ -45,6 +45,8 @@ export interface RemoteModeInfo {
 	// Shown on the phone, usually the computer's name.
 	label: string;
 	studioVersion: string;
+	// How often open event streams are checked against the paired devices.
+	streamRecheckMs?: number;
 }
 
 function hasAttachments( body: unknown ): boolean {
@@ -98,7 +100,26 @@ const pairBodySchema = z.object( {
 	platform: z.enum( [ 'ios', 'android' ] ),
 } );
 
-export function registerRemoteRoutes( app: Express, api: Router, info: RemoteModeInfo ): void {
+// A stream authenticates once, when it opens. This ends the ones whose device
+// is no longer paired (revoked, expired), so they stop receiving agent output.
+export function closeUnpairedStreams(
+	clients: Iterable< Response >,
+	pairedIds: ReadonlySet< string >
+): void {
+	for ( const client of clients ) {
+		const deviceId = ( client.locals.remoteDevice as RemoteDevice | undefined )?.id;
+		if ( ! deviceId || ! pairedIds.has( deviceId ) ) {
+			client.end();
+		}
+	}
+}
+
+export function registerRemoteRoutes(
+	app: Express,
+	api: Router,
+	info: RemoteModeInfo,
+	onDeviceRevoked: ( deviceId: string ) => void
+): void {
 	// Read before pairing, so the phone can check which computer answers and
 	// whether the two speak the same protocol.
 	app.get( '/.well-known/studio/remote', ( _req: Request, res: Response, next: NextFunction ) => {
@@ -138,7 +159,10 @@ export function registerRemoteRoutes( app: Express, api: Router, info: RemoteMod
 	api.delete( '/remote/devices/current', ( _req: Request, res: Response, next: NextFunction ) => {
 		const device = res.locals.remoteDevice as RemoteDevice;
 		revokeRemoteDevice( device.id )
-			.then( () => res.sendStatus( 204 ) )
+			.then( () => {
+				onDeviceRevoked( device.id );
+				res.sendStatus( 204 );
+			} )
 			.catch( next );
 	} );
 }

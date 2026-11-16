@@ -1,102 +1,37 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import http from 'node:http';
-import os from 'node:os';
-import path from 'node:path';
-import { createPairingCode } from '@studio/common/lib/remote-access';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 import { isRemoteRouteAllowed } from '../remote-mode';
+import {
+	baseServerOptions,
+	pairDevice,
+	request as send,
+	startRemoteTestServer,
+	type RequestOptions,
+	type TestRemoteServer,
+} from './remote-test-utils';
 
+let test: TestRemoteServer;
 let server: LocalServer;
-let configDir: string;
-
-const baseOptions = {
-	cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),
-	sessionsRoot: path.join( os.tmpdir(), 'studio-test-sessions' ),
-	sitesRoot: path.join( os.tmpdir(), 'studio-test-sites' ),
-	port: 0,
-};
+// Pairing allows 10 requests a minute, so the file pairs once and reuses this.
+let token: string;
 
 beforeAll( async () => {
-	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-remote-mode-' ) );
-	process.env.DEV_CONFIG_DIR = configDir;
-	server = await startLocalServer( {
-		...baseOptions,
-		host: '127.0.0.1',
-		remote: { label: 'Test Mac', studioVersion: '0.0.0-test' },
-	} );
+	test = await startRemoteTestServer();
+	server = test.server;
+	( { token } = await pairDevice( server.port ) );
 } );
 
 afterAll( async () => {
-	await server.close();
-	delete process.env.DEV_CONFIG_DIR;
-	rmSync( configDir, { recursive: true, force: true } );
+	await test.stop();
 } );
 
-interface Reply {
-	status: number;
-	json: Record< string, unknown > | undefined;
-}
-
-function request( options: {
-	method?: string;
-	path: string;
-	token?: string;
-	origin?: string;
-	body?: unknown;
-} ): Promise< Reply > {
-	return new Promise( ( resolve, reject ) => {
-		const payload = options.body === undefined ? undefined : JSON.stringify( options.body );
-		const req = http.request(
-			{
-				host: '127.0.0.1',
-				port: server.port,
-				path: options.path,
-				method: options.method ?? 'GET',
-				headers: {
-					...( payload
-						? { 'content-type': 'application/json', 'content-length': Buffer.byteLength( payload ) }
-						: {} ),
-					...( options.token ? { authorization: `Bearer ${ options.token }` } : {} ),
-					...( options.origin ? { origin: options.origin } : {} ),
-				},
-			},
-			( response ) => {
-				let raw = '';
-				response.setEncoding( 'utf8' );
-				response.on( 'data', ( chunk ) => ( raw += chunk ) );
-				response.on( 'end', () => {
-					let json: Record< string, unknown > | undefined;
-					try {
-						json = raw ? JSON.parse( raw ) : undefined;
-					} catch {
-						json = undefined;
-					}
-					resolve( { status: response.statusCode ?? 0, json } );
-				} );
-			}
-		);
-		req.on( 'error', reject );
-		if ( payload ) {
-			req.write( payload );
-		}
-		req.end();
-	} );
-}
-
-async function pairDevice(): Promise< { token: string; deviceId: string } > {
-	const { code } = await createPairingCode();
-	const reply = await request( {
-		method: 'POST',
-		path: '/api/remote/pair',
-		body: { code, deviceName: 'Test phone', platform: 'ios' },
-	} );
-	return reply.json as { token: string; deviceId: string };
+function request( options: RequestOptions ) {
+	return send( server.port, options );
 }
 
 describe( 'remote mode', () => {
 	it( 'refuses to listen on the network without remote mode', async () => {
-		await expect( startLocalServer( { ...baseOptions, host: '0.0.0.0' } ) ).rejects.toThrow(
+		await expect( startLocalServer( { ...baseServerOptions, host: '0.0.0.0' } ) ).rejects.toThrow(
 			/remote mode/i
 		);
 	} );
@@ -131,7 +66,6 @@ describe( 'remote mode', () => {
 	} );
 
 	it( 'pairs a device and lets its token in', async () => {
-		const { token } = await pairDevice();
 		expect( ( await request( { path: '/api/health', token } ) ).status ).toBe( 200 );
 		expect( ( await request( { path: '/api/runs/active', token } ) ).status ).toBe( 200 );
 	} );
@@ -142,7 +76,6 @@ describe( 'remote mode', () => {
 	} );
 
 	it( 'answers 403 for every registered route outside the allowlist', async () => {
-		const { token } = await pairDevice();
 		const blocked = server.apiRoutes
 			.map( ( route ) => ( { ...route, path: route.path.replace( /:[A-Za-z]+/g, 'x' ) } ) )
 			.filter( ( route ) => ! isRemoteRouteAllowed( route.method, route.path ) );
@@ -156,18 +89,15 @@ describe( 'remote mode', () => {
 	} );
 
 	it( 'answers 403 for a path the server does not know', async () => {
-		const { token } = await pairDevice();
 		expect( ( await request( { path: '/api/no-such-route', token } ) ).status ).toBe( 403 );
 	} );
 
 	it( 'rejects requests that come from a web page', async () => {
-		const { token } = await pairDevice();
 		const reply = await request( { path: '/api/health', token, origin: 'http://evil.example' } );
 		expect( reply.status ).toBe( 403 );
 	} );
 
 	it( 'accepts text messages only', async () => {
-		const { token } = await pairDevice();
 		const reply = await request( {
 			method: 'POST',
 			path: '/api/sessions/some-session/messages',
@@ -179,14 +109,14 @@ describe( 'remote mode', () => {
 	} );
 
 	it( 'lets a phone forget this computer', async () => {
-		const { token } = await pairDevice();
+		const own = await pairDevice( server.port );
 		const reply = await request( {
 			method: 'DELETE',
 			path: '/api/remote/devices/current',
-			token,
+			token: own.token,
 		} );
 		expect( reply.status ).toBe( 204 );
-		expect( ( await request( { path: '/api/health', token } ) ).status ).toBe( 401 );
+		expect( ( await request( { path: '/api/health', token: own.token } ) ).status ).toBe( 401 );
 	} );
 
 	it( 'does not serve the sign-in callback page', async () => {

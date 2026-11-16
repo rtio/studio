@@ -99,6 +99,7 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
+import { listRemoteDevices, type RemoteDevice } from '@studio/common/lib/remote-access';
 import {
 	forgetRemoteSite,
 	getRemoteSites,
@@ -202,6 +203,7 @@ import {
 	openUrl,
 } from './open-in-os';
 import {
+	closeUnpairedStreams,
 	createRemoteApiGuard,
 	registerRemoteRoutes,
 	REMOTE_EVENT_CHANNELS,
@@ -428,6 +430,20 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 	}
 
+	// A stream is authenticated once, when it opens, so remote mode re-checks the
+	// paired devices and ends the streams of any that were revoked or expired.
+	const streamRecheck = remote
+		? setInterval( () => {
+				listRemoteDevices()
+					.then( ( devices ) =>
+						closeUnpairedStreams( sseClients, new Set( devices.map( ( device ) => device.id ) ) )
+					)
+					// Fail closed: a store that cannot be read proves nothing about who is paired.
+					.catch( () => closeUnpairedStreams( sseClients, new Set() ) );
+		  }, remote.streamRecheckMs ?? 5000 )
+		: undefined;
+	streamRecheck?.unref();
+
 	const syncRunner = createSyncRunner( execute );
 
 	// Background watch for the WordPress.com site the user is about to create via
@@ -605,7 +621,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	if ( remote ) {
 		api.use( createRemoteApiGuard() );
-		registerRemoteRoutes( app, api, remote );
+		registerRemoteRoutes( app, api, remote, ( deviceId ) => {
+			for ( const client of sseClients ) {
+				if ( ( client.locals.remoteDevice as RemoteDevice | undefined )?.id === deviceId ) {
+					client.end();
+				}
+			}
+		} );
 	}
 
 	api.get( '/events', ( req: Request, res: Response ) => {
@@ -2565,6 +2587,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		port: listeningPort,
 		apiRoutes,
 		async close() {
+			clearInterval( streamRecheck );
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;
