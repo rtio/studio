@@ -4,6 +4,7 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, REMOTE_ACCESS_LOCKFILE_NAME } from '../constants';
+import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { getConfigDirectory, getRemoteAccessConfigPath } from './well-known-paths';
 
@@ -13,35 +14,52 @@ export const REMOTE_PROTOCOL_VERSION = 1;
 
 const REMOTE_ACCESS_VERSION = 1;
 
-const pairingCodeSchema = z.object( {
-	codeHash: z.string(),
-	expiresAt: z.number(),
-	failedAttempts: z.number(),
-} );
+const pairingCodeSchema = z
+	.object( {
+		codeHash: z.string(),
+		expiresAt: z.number(),
+		failedAttempts: z.number(),
+	} )
+	.loose();
 
-const storedDeviceSchema = z.object( {
-	id: z.string(),
-	name: z.string(),
-	platform: z.string(),
-	tokenHash: z.string(),
-	pairedAt: z.number(),
-	lastSeenAt: z.number(),
-	expiresAt: z.number(),
-} );
+const storedDeviceSchema = z
+	.object( {
+		id: z.string(),
+		name: z.string(),
+		platform: z.string(),
+		tokenHash: z.string(),
+		pairedAt: z.number(),
+		lastSeenAt: z.number(),
+		expiresAt: z.number(),
+	} )
+	.loose();
 
-const serverInfoSchema = z.object( {
-	url: z.string(),
-	pid: z.number(),
-	startedAt: z.number(),
-} );
+const serverInfoSchema = z
+	.object( {
+		url: z.string(),
+		pid: z.number(),
+		startedAt: z.number(),
+	} )
+	.loose();
 
-const remoteAccessSchema = z.object( {
-	version: z.literal( REMOTE_ACCESS_VERSION ),
-	instanceId: z.string(),
-	pairingCodes: z.array( pairingCodeSchema ),
-	devices: z.array( storedDeviceSchema ),
-	server: serverInfoSchema.optional(),
-} );
+const remoteAccessSchema = z
+	.object( {
+		version: z.literal( REMOTE_ACCESS_VERSION ),
+		instanceId: z.string(),
+		pairingCodes: z.array( pairingCodeSchema ),
+		devices: z.array( storedDeviceSchema ),
+		server: serverInfoSchema.optional(),
+	} )
+	.loose();
+
+export class RemoteAccessVersionMismatchError extends Error {
+	constructor() {
+		super(
+			'A newer version of Studio or the Studio CLI wrote the remote access file. Please update all components to the same version.'
+		);
+		this.name = 'RemoteAccessVersionMismatchError';
+	}
+}
 
 export type RemoteAccessState = z.infer< typeof remoteAccessSchema >;
 export type RemoteServerInfo = z.infer< typeof serverInfoSchema >;
@@ -55,32 +73,54 @@ function emptyState(): RemoteAccessState {
 	};
 }
 
-// A missing or unreadable file reads as empty: no device is paired.
-export async function readRemoteAccess(): Promise< RemoteAccessState > {
+async function readStoredRemoteAccess(): Promise< RemoteAccessState | null > {
 	const configPath = getRemoteAccessConfigPath();
 	if ( ! fs.existsSync( configPath ) ) {
-		return emptyState();
+		return null;
 	}
+	let data: unknown;
 	try {
 		const content = await readFile( configPath, { encoding: 'utf8' } );
-		return remoteAccessSchema.parse( JSON.parse( content ) );
-	} catch {
-		return emptyState();
+		data = JSON.parse( content );
+		return remoteAccessSchema.parse( data );
+	} catch ( error ) {
+		if ( error instanceof z.ZodError ) {
+			const version = ( data as { version?: unknown } | null )?.version;
+			if ( typeof version === 'number' && version !== REMOTE_ACCESS_VERSION ) {
+				throw new RemoteAccessVersionMismatchError();
+			}
+			return null;
+		}
+		if ( error instanceof SyntaxError ) {
+			return null;
+		}
+		// Anything else, such as an I/O error, must not read as empty: the next update would wipe the file.
+		throw error;
 	}
 }
 
+// A missing or unreadable file reads as empty: no device is paired. The `instanceId` of an empty
+// state is a throwaway, so callers must use `getRemoteInstanceId()`.
+export async function readRemoteAccess(): Promise< RemoteAccessState > {
+	return ( await readStoredRemoteAccess() ) ?? emptyState();
+}
+
+// `mutate` must be synchronous: the state is written as soon as it returns.
 export async function updateRemoteAccess< T >(
 	mutate: ( state: RemoteAccessState ) => T
 ): Promise< T > {
 	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
 		fs.mkdirSync( configDir, { recursive: true } );
+		await hideDirectoryOnWindows( configDir );
 	}
 	const lockPath = path.join( configDir, REMOTE_ACCESS_LOCKFILE_NAME );
 	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
 	try {
 		const state = await readRemoteAccess();
 		const result = mutate( state );
+		// A state that would read back as empty must fail here, not wipe the file.
+		remoteAccessSchema.parse( state );
 		await writeFile( getRemoteAccessConfigPath(), JSON.stringify( state, null, 2 ) + '\n', {
 			encoding: 'utf8',
 			mode: 0o600,
@@ -92,6 +132,10 @@ export async function updateRemoteAccess< T >(
 }
 
 // Stable id of this Studio install, so a phone can tell two computers apart.
-export function getRemoteInstanceId(): Promise< string > {
+export async function getRemoteInstanceId(): Promise< string > {
+	const stored = await readStoredRemoteAccess();
+	if ( stored ) {
+		return stored.instanceId;
+	}
 	return updateRemoteAccess( ( state ) => state.instanceId );
 }
