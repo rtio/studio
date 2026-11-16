@@ -3,14 +3,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	authenticateDeviceToken,
 	createPairingCode,
+	DEVICE_TOKEN_TTL_MS,
 	formatPairingCode,
 	getRemoteInstanceId,
+	listRemoteDevices,
 	PAIRING_CODE_TTL_MS,
 	PAIRING_MAX_FAILED_ATTEMPTS,
 	readRemoteAccess,
 	RemoteAccessVersionMismatchError,
 	redeemPairingCode,
+	revokeRemoteDevice,
 	updateRemoteAccess,
 } from '../remote-access';
 
@@ -218,5 +222,54 @@ describe( 'pairing codes', () => {
 
 	it( 'formats a code in groups of four', () => {
 		expect( formatPairingCode( 'ABCDEFGH2345' ) ).toBe( 'ABCD-EFGH-2345' );
+	} );
+} );
+
+describe( 'device tokens', () => {
+	async function pair( now = 1_000 ) {
+		const { code } = await createPairingCode( now );
+		const paired = await redeemPairingCode( { code, ...phone }, now );
+		if ( ! paired ) {
+			throw new Error( 'pairing failed' );
+		}
+		return paired;
+	}
+
+	it( 'authenticates the token it issued and no other', async () => {
+		const { token, deviceId } = await pair();
+		expect( ( await authenticateDeviceToken( token, 2_000 ) )?.id ).toBe( deviceId );
+		expect( await authenticateDeviceToken( 'not-the-token', 2_000 ) ).toBeNull();
+		expect( await authenticateDeviceToken( '', 2_000 ) ).toBeNull();
+	} );
+
+	it( 'never stores the token itself', async () => {
+		const { token } = await pair();
+		expect( readFileSync( storePath(), 'utf8' ) ).not.toContain( token );
+	} );
+
+	it( 'rejects a token after 30 days', async () => {
+		const { token } = await pair( 1_000 );
+		expect( await authenticateDeviceToken( token, 1_000 + DEVICE_TOKEN_TTL_MS ) ).toBeNull();
+	} );
+
+	it( 'records when the device was last seen', async () => {
+		const { token } = await pair( 1_000 );
+		await authenticateDeviceToken( token, 1_000 + 5 * 60 * 1000 );
+		const [ device ] = await listRemoteDevices( 1_000 + 5 * 60 * 1000 );
+		expect( device.lastSeenAt ).toBe( 1_000 + 5 * 60 * 1000 );
+	} );
+
+	it( 'lists devices without their token hash', async () => {
+		await pair();
+		const [ device ] = await listRemoteDevices( 2_000 );
+		expect( device ).toMatchObject( { name: "Sam's iPhone", platform: 'ios' } );
+		expect( device ).not.toHaveProperty( 'tokenHash' );
+	} );
+
+	it( 'revokes a device at once', async () => {
+		const { token, deviceId } = await pair();
+		expect( await revokeRemoteDevice( deviceId ) ).toBe( true );
+		expect( await authenticateDeviceToken( token, 2_000 ) ).toBeNull();
+		expect( await revokeRemoteDevice( deviceId ) ).toBe( false );
 	} );
 } );

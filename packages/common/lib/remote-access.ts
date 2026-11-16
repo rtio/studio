@@ -227,3 +227,67 @@ export function redeemPairingCode(
 		return { token, deviceId: device.id, expiresAt: device.expiresAt };
 	} );
 }
+
+// Named fields only: the stored schema is loose, so a spread would carry the
+// token hash and any field a newer build added.
+export interface RemoteDevice {
+	id: string;
+	name: string;
+	platform: string;
+	pairedAt: number;
+	lastSeenAt: number;
+	expiresAt: number;
+}
+
+// Writing on every request would rewrite the file constantly.
+const LAST_SEEN_WRITE_INTERVAL_MS = 60 * 1000;
+
+function toRemoteDevice( stored: z.infer< typeof storedDeviceSchema > ): RemoteDevice {
+	return {
+		id: stored.id,
+		name: stored.name,
+		platform: stored.platform,
+		pairedAt: stored.pairedAt,
+		lastSeenAt: stored.lastSeenAt,
+		expiresAt: stored.expiresAt,
+	};
+}
+
+// Reads the file each time, so a revoke from another process applies at once.
+export async function authenticateDeviceToken(
+	token: string,
+	now = Date.now()
+): Promise< RemoteDevice | null > {
+	if ( ! token ) {
+		return null;
+	}
+	const tokenHash = sha256( token );
+	const state = await readRemoteAccess();
+	const stored = state.devices.find( ( entry ) => hashesMatch( entry.tokenHash, tokenHash ) );
+	if ( ! stored || stored.expiresAt <= now ) {
+		return null;
+	}
+	if ( now - stored.lastSeenAt >= LAST_SEEN_WRITE_INTERVAL_MS ) {
+		await updateRemoteAccess( ( current ) => {
+			const entry = current.devices.find( ( candidate ) => candidate.id === stored.id );
+			if ( entry ) {
+				entry.lastSeenAt = now;
+			}
+		} );
+		return toRemoteDevice( { ...stored, lastSeenAt: now } );
+	}
+	return toRemoteDevice( stored );
+}
+
+export async function listRemoteDevices( now = Date.now() ): Promise< RemoteDevice[] > {
+	const state = await readRemoteAccess();
+	return state.devices.filter( ( entry ) => entry.expiresAt > now ).map( toRemoteDevice );
+}
+
+export function revokeRemoteDevice( deviceId: string ): Promise< boolean > {
+	return updateRemoteAccess( ( state ) => {
+		const before = state.devices.length;
+		state.devices = state.devices.filter( ( entry ) => entry.id !== deviceId );
+		return state.devices.length < before;
+	} );
+}
