@@ -108,18 +108,30 @@ const pairBodySchema = z.object( {
 	platform: z.enum( [ 'ios', 'android' ] ),
 } );
 
+// Calls `close` on each stream whose device `shouldClose` picks. A stream that
+// belongs to no device is always closed. Works on a copy, since `close` removes
+// the stream from the set being walked.
+export function closeStreamsWhere(
+	clients: Iterable< Response >,
+	shouldClose: ( deviceId: string ) => boolean,
+	close: ( client: Response ) => void
+): void {
+	for ( const client of [ ...clients ] ) {
+		const deviceId = ( client.locals.remoteDevice as RemoteDevice | undefined )?.id;
+		if ( ! deviceId || shouldClose( deviceId ) ) {
+			close( client );
+		}
+	}
+}
+
 // A stream authenticates once, when it opens. This ends the ones whose device
 // is no longer paired (revoked, expired), so they stop receiving agent output.
 export function closeUnpairedStreams(
 	clients: Iterable< Response >,
-	pairedIds: ReadonlySet< string >
+	pairedIds: ReadonlySet< string >,
+	close: ( client: Response ) => void
 ): void {
-	for ( const client of clients ) {
-		const deviceId = ( client.locals.remoteDevice as RemoteDevice | undefined )?.id;
-		if ( ! deviceId || ! pairedIds.has( deviceId ) ) {
-			client.end();
-		}
-	}
+	closeStreamsWhere( clients, ( deviceId ) => ! pairedIds.has( deviceId ), close );
 }
 
 export function registerRemoteRoutes(

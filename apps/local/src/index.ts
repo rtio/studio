@@ -100,7 +100,7 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
-import { listRemoteDevices, type RemoteDevice } from '@studio/common/lib/remote-access';
+import { listRemoteDevices } from '@studio/common/lib/remote-access';
 import {
 	forgetRemoteSite,
 	getRemoteSites,
@@ -204,6 +204,7 @@ import {
 	openUrl,
 } from './open-in-os';
 import {
+	closeStreamsWhere,
 	closeUnpairedStreams,
 	createRemoteApiGuard,
 	registerRemoteRoutes,
@@ -432,8 +433,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const data = JSON.stringify( message );
 		for ( const client of sseClients ) {
+			// A closed stream can linger until its request's `close` event; writing
+			// to it throws an error nobody listens for.
+			if ( client.writableEnded || client.destroyed ) {
+				continue;
+			}
 			client.write( `data: ${ data }\n\n` );
 		}
+	}
+
+	// For streams the server closes on its own. `end()` waits for the buffered
+	// output to flush, which a client that stopped reading never allows, so the
+	// stream would stay in the set and the next write would throw. Destroying it
+	// also drops what was still queued for a device that is no longer paired.
+	function closeStream( client: Response ): void {
+		sseClients.delete( client );
+		client.destroy();
 	}
 
 	// A stream is authenticated once, when it opens, so remote mode re-checks the
@@ -442,10 +457,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		? setInterval( () => {
 				listRemoteDevices()
 					.then( ( devices ) =>
-						closeUnpairedStreams( sseClients, new Set( devices.map( ( device ) => device.id ) ) )
+						closeUnpairedStreams(
+							sseClients,
+							new Set( devices.map( ( device ) => device.id ) ),
+							closeStream
+						)
 					)
 					// Fail closed: a store that cannot be read proves nothing about who is paired.
-					.catch( () => closeUnpairedStreams( sseClients, new Set() ) );
+					.catch( () => closeUnpairedStreams( sseClients, new Set(), closeStream ) );
 		  }, remote.streamRecheckMs ?? 5000 )
 		: undefined;
 	streamRecheck?.unref();
@@ -637,13 +656,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	if ( remote ) {
 		api.use( createRemoteApiGuard() );
-		registerRemoteRoutes( app, api, remote, ( deviceId ) => {
-			for ( const client of sseClients ) {
-				if ( ( client.locals.remoteDevice as RemoteDevice | undefined )?.id === deviceId ) {
-					client.end();
-				}
-			}
-		} );
+		registerRemoteRoutes( app, api, remote, ( deviceId ) =>
+			closeStreamsWhere( sseClients, ( id ) => id === deviceId, closeStream )
+		);
 	}
 
 	api.get( '/events', ( req: Request, res: Response ) => {
@@ -2622,10 +2637,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				watch.cancelled = true;
 			}
 			publishWatches.clear();
-			for ( const client of sseClients ) {
-				client.end();
+			// Destroyed, not ended: a stream whose client stopped reading would
+			// never finish, and `server.close` waits for every connection.
+			for ( const client of [ ...sseClients ] ) {
+				closeStream( client );
 			}
-			sseClients.clear();
 			await new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
 		},
 	};
