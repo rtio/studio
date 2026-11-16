@@ -3,9 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	createPairingCode,
+	formatPairingCode,
 	getRemoteInstanceId,
+	PAIRING_CODE_TTL_MS,
+	PAIRING_MAX_FAILED_ATTEMPTS,
 	readRemoteAccess,
 	RemoteAccessVersionMismatchError,
+	redeemPairingCode,
 	updateRemoteAccess,
 } from '../remote-access';
 
@@ -166,5 +171,52 @@ describe( 'remote access store', () => {
 		expect( second ).toBe( first );
 		expect( readFileSync( storePath(), 'utf8' ) ).toBe( content );
 		expect( statSync( storePath() ).mtimeMs ).toBe( mtimeMs );
+	} );
+} );
+
+const phone = { deviceName: "Sam's iPhone", platform: 'ios' as const };
+
+describe( 'pairing codes', () => {
+	it( 'mints a 12-character code from the unambiguous alphabet', async () => {
+		const { code, expiresAt } = await createPairingCode( 1_000 );
+		expect( code ).toMatch( /^[0-9A-HJKMNP-TV-Z]{12}$/ );
+		expect( expiresAt ).toBe( 1_000 + PAIRING_CODE_TTL_MS );
+	} );
+
+	it( 'never stores the code itself', async () => {
+		const { code } = await createPairingCode();
+		expect( readFileSync( storePath(), 'utf8' ) ).not.toContain( code );
+	} );
+
+	it( 'redeems a code once and returns a device token', async () => {
+		const { code } = await createPairingCode( 1_000 );
+		const paired = await redeemPairingCode( { code, ...phone }, 2_000 );
+		expect( paired?.token ).toMatch( /^[A-Za-z0-9_-]{43}$/ );
+		expect( paired?.deviceId ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( await redeemPairingCode( { code, ...phone }, 3_000 ) ).toBeNull();
+	} );
+
+	it( 'accepts the code as people type it: lower case, with dashes and spaces', async () => {
+		const { code } = await createPairingCode();
+		const typed = formatPairingCode( code ).toLowerCase().replace( '-', ' - ' );
+		expect( await redeemPairingCode( { code: typed, ...phone } ) ).not.toBeNull();
+	} );
+
+	it( 'rejects an expired code', async () => {
+		const { code } = await createPairingCode( 1_000 );
+		const late = 1_000 + PAIRING_CODE_TTL_MS;
+		expect( await redeemPairingCode( { code, ...phone }, late ) ).toBeNull();
+	} );
+
+	it( 'invalidates the code after too many wrong attempts', async () => {
+		const { code } = await createPairingCode();
+		for ( let attempt = 0; attempt < PAIRING_MAX_FAILED_ATTEMPTS; attempt += 1 ) {
+			expect( await redeemPairingCode( { code: 'WRONGWRONGWR', ...phone } ) ).toBeNull();
+		}
+		expect( await redeemPairingCode( { code, ...phone } ) ).toBeNull();
+	} );
+
+	it( 'formats a code in groups of four', () => {
+		expect( formatPairingCode( 'ABCDEFGH2345' ) ).toBe( 'ABCD-EFGH-2345' );
 	} );
 } );

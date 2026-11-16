@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
@@ -11,6 +11,16 @@ import { getConfigDirectory, getRemoteAccessConfigPath } from './well-known-path
 // What `studio remote` and paired phones agree on. Bump it when a change to the
 // remote routes or their payloads would break a phone built for the old ones.
 export const REMOTE_PROTOCOL_VERSION = 1;
+
+export const PAIRING_CODE_LENGTH = 12;
+export const PAIRING_CODE_TTL_MS = 5 * 60 * 1000;
+export const PAIRING_MAX_FAILED_ATTEMPTS = 5;
+export const DEVICE_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Crockford base32: no I, L, O or U, so nothing reads as another character.
+const PAIRING_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+export type RemoteDevicePlatform = 'ios' | 'android';
 
 const REMOTE_ACCESS_VERSION = 1;
 
@@ -138,4 +148,82 @@ export async function getRemoteInstanceId(): Promise< string > {
 		return stored.instanceId;
 	}
 	return updateRemoteAccess( ( state ) => state.instanceId );
+}
+
+function sha256( value: string ): string {
+	return createHash( 'sha256' ).update( value ).digest( 'hex' );
+}
+
+function hashesMatch( a: string, b: string ): boolean {
+	const left = Buffer.from( a, 'hex' );
+	const right = Buffer.from( b, 'hex' );
+	return left.length === right.length && timingSafeEqual( left, right );
+}
+
+function normalizePairingCode( code: string ): string {
+	return code.replace( /[\s-]/g, '' ).toUpperCase();
+}
+
+export function formatPairingCode( code: string ): string {
+	return code.match( /.{1,4}/g )?.join( '-' ) ?? code;
+}
+
+export async function createPairingCode(
+	now = Date.now()
+): Promise< { code: string; expiresAt: number } > {
+	let code = '';
+	for ( let index = 0; index < PAIRING_CODE_LENGTH; index += 1 ) {
+		code += PAIRING_CODE_ALPHABET[ randomInt( PAIRING_CODE_ALPHABET.length ) ];
+	}
+	const expiresAt = now + PAIRING_CODE_TTL_MS;
+	await updateRemoteAccess( ( state ) => {
+		state.pairingCodes = state.pairingCodes.filter( ( entry ) => entry.expiresAt > now );
+		state.pairingCodes.push( { codeHash: sha256( code ), expiresAt, failedAttempts: 0 } );
+	} );
+	return { code, expiresAt };
+}
+
+export interface PairedDevice {
+	token: string;
+	deviceId: string;
+	expiresAt: number;
+}
+
+// A wrong code counts against every code that is still open, so guessing
+// burns the real one. Returns null when the code is wrong, used or expired.
+export function redeemPairingCode(
+	input: { code: string; deviceName: string; platform: RemoteDevicePlatform },
+	now = Date.now()
+): Promise< PairedDevice | null > {
+	return updateRemoteAccess( ( state ) => {
+		state.pairingCodes = state.pairingCodes.filter( ( entry ) => entry.expiresAt > now );
+		const codeHash = sha256( normalizePairingCode( input.code ) );
+		const index = state.pairingCodes.findIndex( ( entry ) =>
+			hashesMatch( entry.codeHash, codeHash )
+		);
+		if ( index === -1 ) {
+			for ( const entry of state.pairingCodes ) {
+				entry.failedAttempts += 1;
+			}
+			state.pairingCodes = state.pairingCodes.filter(
+				( entry ) => entry.failedAttempts < PAIRING_MAX_FAILED_ATTEMPTS
+			);
+			return null;
+		}
+		state.pairingCodes.splice( index, 1 );
+
+		const token = randomBytes( 32 ).toString( 'base64url' );
+		const device = {
+			id: randomUUID(),
+			name: input.deviceName.trim().slice( 0, 80 ),
+			platform: input.platform,
+			tokenHash: sha256( token ),
+			pairedAt: now,
+			lastSeenAt: now,
+			expiresAt: now + DEVICE_TOKEN_TTL_MS,
+		};
+		state.devices = state.devices.filter( ( entry ) => entry.expiresAt > now );
+		state.devices.push( device );
+		return { token, deviceId: device.id, expiresAt: device.expiresAt };
+	} );
 }
