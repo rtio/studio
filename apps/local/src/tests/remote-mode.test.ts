@@ -56,6 +56,34 @@ describe( 'remote mode', () => {
 		expect( reply.status ).toBe( 401 );
 	} );
 
+	it( 'refuses a large body before the guard reads it', async () => {
+		const reply = await request( {
+			method: 'POST',
+			path: '/api/remote/pair',
+			body: {
+				code: 'WRONGWRONGWR',
+				deviceName: 'Test phone',
+				platform: 'ios',
+				padding: 'x'.repeat( 300_000 ),
+			},
+		} );
+		expect( reply.status ).toBe( 413 );
+	} );
+
+	it( 'still answers a modest body with a wrong code', async () => {
+		const reply = await request( {
+			method: 'POST',
+			path: '/api/remote/pair',
+			body: {
+				code: 'WRONGWRONGWR',
+				deviceName: 'Test phone',
+				platform: 'ios',
+				padding: 'x'.repeat( 100_000 ),
+			},
+		} );
+		expect( reply.status ).toBe( 401 );
+	} );
+
 	it( 'rejects a pairing request with missing fields', async () => {
 		const reply = await request( {
 			method: 'POST',

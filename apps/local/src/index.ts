@@ -616,8 +616,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Chat attachments ride along as base64 in the JSON body; size the limit for
-	// the image cap (with base64 overhead) plus file metadata.
-	app.use( express.json( { limit: STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
+	// the image cap (with base64 overhead) plus file metadata. A paired phone sends
+	// text only, and this runs before the guard, so remote mode keeps it small.
+	app.use( express.json( { limit: remote ? '256kb' : STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
 
 	if ( remote ) {
 		api.use( createRemoteApiGuard() );
@@ -2559,6 +2560,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
 		if ( err instanceof ConnectError ) {
 			res.status( 400 ).json( { error: err.message } );
+			return;
+		}
+		// Body-parser errors, such as an oversized body, carry their own 4xx status.
+		const status = ( err as { status?: unknown } | null )?.status;
+		if ( remote && typeof status === 'number' && status >= 400 && status < 500 ) {
+			res.status( status ).json( { error: 'Bad request' } );
 			return;
 		}
 		const message = err instanceof Error ? err.message : String( err );
