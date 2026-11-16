@@ -579,13 +579,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} );
 	}
 
-	// Restrict cross-origin access to the known `studio ui` origins. Without
-	// `remote` the server is loopback-only and unauthenticated, but loopback is
-	// reachable from any page in the user's browser, so reflecting arbitrary
-	// origins would let any website call this API (read data, or trigger state
-	// changes). Requests with no
-	// Origin (same-origin navigations, the served SPA's same-origin fetches, curl,
-	// SSE) pass through; a present-but-disallowed Origin is rejected outright.
+	// In `studio ui` mode, cross-origin access is restricted to the known
+	// `studio ui` origins. The server is loopback-only and unauthenticated, but
+	// loopback is reachable from any page in the user's browser, so reflecting
+	// arbitrary origins would let any website call this API (read data, or
+	// trigger state changes). Requests with no Origin (same-origin navigations,
+	// the served SPA's same-origin fetches, curl, SSE) pass through. In remote
+	// mode any request with an Origin is rejected.
 	const allowedOrigins = new Set( [
 		`http://localhost:${ port }`,
 		`http://127.0.0.1:${ port }`,
