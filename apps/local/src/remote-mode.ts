@@ -49,15 +49,14 @@ export interface RemoteModeInfo {
 	streamRecheckMs?: number;
 }
 
-function hasAttachments( body: unknown ): boolean {
-	if ( typeof body !== 'object' || body === null ) {
-		return false;
-	}
-	const { images, files, visualAnnotations } = body as Record< string, unknown >;
-	return [ images, files, visualAnnotations ].some(
-		( value ) => Array.isArray( value ) && value.length > 0
-	);
-}
+// The only body a phone may send to start a turn. Strict, so a field added to
+// the server's message route later stays unreachable until it is listed here.
+const remoteMessageBodySchema = z.strictObject( {
+	prompt: z.string().min( 1 ),
+	turnId: z.string().optional(),
+} );
+
+const MESSAGE_PATH = /^\/sessions\/[^/]+\/messages$/;
 
 // Mounted on the `/api` router ahead of every route: allowlist first, then the
 // device token. Pairing is the one allowed route that needs no token.
@@ -81,10 +80,12 @@ export function createRemoteApiGuard() {
 				}
 				if (
 					req.method === 'POST' &&
-					/\/messages$/.test( req.path ) &&
-					hasAttachments( req.body )
+					MESSAGE_PATH.test( req.path ) &&
+					! remoteMessageBodySchema.safeParse( req.body ).success
 				) {
-					res.status( 400 ).json( { error: 'Attachments are not available in remote mode' } );
+					res
+						.status( 400 )
+						.json( { error: 'Remote mode accepts a text prompt only, without attachments' } );
 					return;
 				}
 				res.locals.remoteDevice = device;
