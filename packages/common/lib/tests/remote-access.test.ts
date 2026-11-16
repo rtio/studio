@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
 	chmodSync,
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	rmSync,
@@ -103,7 +104,15 @@ describe( 'remote access store', () => {
 			JSON.stringify( {
 				version: 1,
 				instanceId: 'x',
-				pairingCodes: [],
+				pairingCodes: [
+					{
+						codeHash: 'code-hash',
+						expiresAt: Date.now() + 60_000,
+						failedAttempts: 0,
+						futureCodeField: 'c',
+					},
+				],
+				server: { url: 'http://x', pid: 1, startedAt: 1, futureServerField: 's' },
 				futureField: 1,
 				devices: [
 					{
@@ -123,6 +132,16 @@ describe( 'remote access store', () => {
 		const saved = JSON.parse( readFileSync( storePath(), 'utf8' ) );
 		expect( saved.futureField ).toBe( 1 );
 		expect( saved.devices[ 0 ].futureDeviceField ).toBe( true );
+		expect( saved.pairingCodes[ 0 ].futureCodeField ).toBe( 'c' );
+		expect( saved.server.futureServerField ).toBe( 's' );
+	} );
+
+	it( 'rethrows I/O errors instead of reading them as empty', async () => {
+		mkdirSync( storePath() );
+		await expect( readRemoteAccess() ).rejects.toMatchObject( { code: 'EISDIR' } );
+		await expect( updateRemoteAccess( () => undefined ) ).rejects.toMatchObject( {
+			code: 'EISDIR',
+		} );
 	} );
 
 	it( 'reads valid JSON with the wrong shape as empty', async () => {
@@ -159,6 +178,7 @@ describe( 'remote access store', () => {
 				throw new Error( 'boom' );
 			} )
 		).rejects.toThrow( 'boom' );
+		expect( existsSync( path.join( configDir, 'remote.json.lock' ) ) ).toBe( false );
 		expect( readFileSync( storePath(), 'utf8' ) ).toBe( before );
 		await expect( updateRemoteAccess( () => 'ok' ) ).resolves.toBe( 'ok' );
 	} );
@@ -185,11 +205,12 @@ describe( 'remote access store', () => {
 	it( 'does not rewrite the file when reading the instance id', async () => {
 		const first = await getRemoteInstanceId();
 		const content = readFileSync( storePath(), 'utf8' );
-		const mtimeMs = statSync( storePath() ).mtimeMs;
+		const { mtimeMs, ino } = statSync( storePath() );
 		const second = await getRemoteInstanceId();
 		expect( second ).toBe( first );
 		expect( readFileSync( storePath(), 'utf8' ) ).toBe( content );
 		expect( statSync( storePath() ).mtimeMs ).toBe( mtimeMs );
+		expect( statSync( storePath() ).ino ).toBe( ino );
 	} );
 } );
 
