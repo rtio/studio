@@ -221,7 +221,10 @@ export async function redeemPairingCode(
 		const token = randomBytes( 32 ).toString( 'base64url' );
 		const device = {
 			id: randomUUID(),
-			name: input.deviceName.trim().slice( 0, 80 ),
+			name: input.deviceName
+				.replace( /\p{Cc}/gu, '' )
+				.trim()
+				.slice( 0, 80 ),
 			platform: input.platform,
 			tokenHash: sha256( token ),
 			pairedAt: now,

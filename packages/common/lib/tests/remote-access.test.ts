@@ -291,6 +291,17 @@ describe( 'device tokens', () => {
 		expect( device.lastSeenAt ).toBe( 1_000 + 5 * 60 * 1000 );
 	} );
 
+	it( 'strips control characters from the device name', async () => {
+		const { code } = await createPairingCode();
+		await redeemPairingCode( {
+			code,
+			deviceName: '\u001b[31mRed\u001b[0m phone\n',
+			platform: 'ios',
+		} );
+		const [ device ] = await listRemoteDevices();
+		expect( device.name ).toBe( '[31mRed[0m phone' );
+	} );
+
 	it( 'lists devices without their token hash', async () => {
 		await pair();
 		const [ device ] = await listRemoteDevices( 2_000 );
