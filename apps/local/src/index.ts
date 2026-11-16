@@ -2608,8 +2608,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.status( 500 ).json( { error: message } );
 	} );
 
-	const server = await new Promise< ReturnType< typeof app.listen > >( ( resolve ) => {
-		const listening = app.listen( port, host, () => resolve( listening ) );
+	// What `startLocalServer` started before it listens, stopped on a failed bind
+	// and on `close()`.
+	function stopBackgroundWork(): void {
+		clearInterval( streamRecheck );
+		cliRunner.killAll();
+		for ( const watch of publishWatches.values() ) {
+			watch.cancelled = true;
+		}
+		publishWatches.clear();
+	}
+
+	// EADDRINUSE, EADDRNOTAVAIL and EACCES arrive as an `error` event, not in the
+	// listen callback.
+	const server = await new Promise< ReturnType< typeof app.listen > >( ( resolve, reject ) => {
+		const onError = ( error: Error ) => {
+			stopBackgroundWork();
+			reject( error );
+		};
+		const listening = app.listen( port, host, () => {
+			listening.off( 'error', onError );
+			resolve( listening );
+		} );
+		listening.once( 'error', onError );
 	} );
 
 	const address = server.address();
@@ -2631,12 +2652,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		port: listeningPort,
 		apiRoutes,
 		async close() {
-			clearInterval( streamRecheck );
-			cliRunner.killAll();
-			for ( const watch of publishWatches.values() ) {
-				watch.cancelled = true;
-			}
-			publishWatches.clear();
+			stopBackgroundWork();
 			// Destroyed, not ended: a stream whose client stopped reading would
 			// never finish, and `server.close` waits for every connection.
 			for ( const client of [ ...sseClients ] ) {
