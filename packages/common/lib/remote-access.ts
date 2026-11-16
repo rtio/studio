@@ -191,10 +191,15 @@ export interface PairedDevice {
 
 // A wrong code counts against every code that is still open, so guessing
 // burns the real one. Returns null when the code is wrong, used or expired.
-export function redeemPairingCode(
+export async function redeemPairingCode(
 	input: { code: string; deviceName: string; platform: RemoteDevicePlatform },
 	now = Date.now()
 ): Promise< PairedDevice | null > {
+	// With no open code a guess cannot count against anything, so it must not take the lock.
+	const current = await readRemoteAccess();
+	if ( ! current.pairingCodes.some( ( entry ) => entry.expiresAt > now ) ) {
+		return null;
+	}
 	return updateRemoteAccess( ( state ) => {
 		state.pairingCodes = state.pairingCodes.filter( ( entry ) => entry.expiresAt > now );
 		const codeHash = sha256( normalizePairingCode( input.code ) );

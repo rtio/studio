@@ -232,6 +232,16 @@ describe( 'pairing codes', () => {
 		expect( await redeemPairingCode( { code, ...phone } ) ).toBeNull();
 	} );
 
+	it( 'does not lock or write when no code is open', async () => {
+		await getRemoteInstanceId();
+		const content = readFileSync( storePath(), 'utf8' );
+		const { mtimeMs, ino } = statSync( storePath() );
+		expect( await redeemPairingCode( { code: 'WRONGWRONGWR', ...phone } ) ).toBeNull();
+		expect( readFileSync( storePath(), 'utf8' ) ).toBe( content );
+		expect( statSync( storePath() ).mtimeMs ).toBe( mtimeMs );
+		expect( statSync( storePath() ).ino ).toBe( ino );
+	} );
+
 	it( 'formats a code in groups of four', () => {
 		expect( formatPairingCode( 'ABCDEFGH2345' ) ).toBe( 'ABCD-EFGH-2345' );
 	} );
