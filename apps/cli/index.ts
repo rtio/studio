@@ -270,11 +270,19 @@ async function main() {
 		'remote',
 		__( 'Let a paired phone reach Studio Code over your network' ),
 		async ( remoteYargs ) => {
-			const [ { registerCommand: registerRemoteStartCommand } ] = await Promise.all( [
+			const [
+				{ registerCommand: registerRemoteStartCommand },
+				{ registerCommand: registerRemotePairCommand },
+				{ registerCommand: registerRemoteDevicesCommand },
+			] = await Promise.all( [
 				import( 'cli/commands/remote/start' ),
+				import( 'cli/commands/remote/pair' ),
+				import( 'cli/commands/remote/devices' ),
 			] );
 
 			registerRemoteStartCommand( remoteYargs );
+			registerRemotePairCommand( remoteYargs );
+			registerRemoteDevicesCommand( remoteYargs );
 			remoteYargs.version( false );
 		}
 	);
