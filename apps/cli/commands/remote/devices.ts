@@ -2,7 +2,6 @@ import { listRemoteDevices, revokeRemoteDevice } from '@studio/common/lib/remote
 import { __ } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { format } from 'date-fns/format';
-import { getColumnWidths } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -23,9 +22,6 @@ export async function runListCommand( outputFormat: 'table' | 'json' ): Promise<
 
 		const table = new CliTable3( {
 			head: [ __( 'ID' ), __( 'Name' ), __( 'Platform' ), __( 'Paired' ), __( 'Last seen' ) ],
-			wordWrap: true,
-			wrapOnWordBoundary: false,
-			colWidths: getColumnWidths( [ 0.34, 0.24, 0.1, 0.16, 0.16 ] ),
 			style: { head: [], border: [] },
 		} );
 		for ( const device of devices ) {
