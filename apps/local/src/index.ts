@@ -207,6 +207,7 @@ import {
 	createRemoteApiGuard,
 	registerRemoteRoutes,
 	REMOTE_EVENT_CHANNELS,
+	toRemoteSite,
 	type RemoteModeInfo,
 } from './remote-mode';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
@@ -528,7 +529,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	cliEvents.on( 'data', ( { data } ) => {
 		const siteEvent = cliSiteEventSchema.safeParse( data );
 		if ( siteEvent.success ) {
-			sseSend( { channel: 'site-event', payload: siteEvent.data.value } );
+			const event = siteEvent.data.value;
+			sseSend( {
+				channel: 'site-event',
+				payload:
+					remote && event.site
+						? { ...event, site: toRemoteSite( { ...event.site, running: event.running } ) }
+						: event,
+			} );
 			return;
 		}
 		const syncEvent = cliSyncEventSchema.safeParse( data );
@@ -974,7 +982,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			res.json( remote ? sites.map( toRemoteSite ) : sites.map( toSiteDetails ) );
 		} )
 	);
 

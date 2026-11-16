@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isRemoteRouteAllowed, REMOTE_EVENT_CHANNELS } from '../remote-mode';
+import { isRemoteRouteAllowed, REMOTE_EVENT_CHANNELS, toRemoteSite } from '../remote-mode';
 
 describe( 'isRemoteRouteAllowed', () => {
 	it.each( [
@@ -48,5 +48,31 @@ describe( 'isRemoteRouteAllowed', () => {
 describe( 'REMOTE_EVENT_CHANNELS', () => {
 	it( 'passes agent output and site status only', () => {
 		expect( [ ...REMOTE_EVENT_CHANNELS ].sort() ).toEqual( [ 'agent', 'site-event' ] );
+	} );
+} );
+
+describe( 'toRemoteSite', () => {
+	it( 'keeps the id, name, running flag and address only', () => {
+		const site = {
+			id: 's1',
+			name: 'My site',
+			running: true,
+			url: 'http://localhost:8881',
+			path: '/Users/someone/Studio/my-site',
+			port: 8881,
+			phpVersion: '8.3',
+			adminUsername: 'admin',
+			adminPassword: 'secret',
+			adminEmail: 'admin@example.com',
+			customDomain: 'my-site.local',
+		};
+		const remoteSite = toRemoteSite( site );
+		expect( Object.keys( remoteSite ).sort() ).toEqual( [ 'id', 'name', 'running', 'url' ] );
+		expect( remoteSite ).toEqual( {
+			id: 's1',
+			name: 'My site',
+			running: true,
+			url: 'http://localhost:8881',
+		} );
 	} );
 } );

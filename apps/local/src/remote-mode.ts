@@ -39,6 +39,12 @@ export function isRemoteRouteAllowed( method: string, path: string ): boolean {
 	);
 }
 
+// What a phone learns about a site. The server's own site shape carries the
+// admin password and local paths, which a phone has no use for.
+export function toRemoteSite( site: { id: string; name: string; running: boolean; url: string } ) {
+	return { id: site.id, name: site.name, running: site.running, url: site.url };
+}
+
 const REMOTE_PAIR_PATH = '/remote/pair';
 
 export interface RemoteModeInfo {
