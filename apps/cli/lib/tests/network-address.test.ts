@@ -33,4 +33,19 @@ describe( 'getDefaultLanAddress', () => {
 			getDefaultLanAddress( { lo0: [ address( { address: '127.0.0.1', internal: true } ) ] } )
 		).toBeUndefined();
 	} );
+
+	it( 'skips link-local addresses in favour of a later LAN address', () => {
+		expect(
+			getDefaultLanAddress( {
+				en1: [ address( { address: '169.254.12.34' } ) ],
+				en0: [ address( { address: '192.168.1.20' } ) ],
+			} )
+		).toBe( '192.168.1.20' );
+	} );
+
+	it( 'returns undefined when only link-local addresses are available', () => {
+		expect(
+			getDefaultLanAddress( { en1: [ address( { address: '169.254.12.34' } ) ] } )
+		).toBeUndefined();
+	} );
 } );
