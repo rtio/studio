@@ -266,6 +266,19 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	studioArgv.command(
+		'remote',
+		__( 'Let a paired phone reach Studio Code over your network' ),
+		async ( remoteYargs ) => {
+			const [ { registerCommand: registerRemoteStartCommand } ] = await Promise.all( [
+				import( 'cli/commands/remote/start' ),
+			] );
+
+			registerRemoteStartCommand( remoteYargs );
+			remoteYargs.version( false );
+		}
+	);
+
 	// Per-site configuration lives under `config` (e.g. `studio config get php`,
 	// `studio config set --php 8.3`).
 	studioArgv.command( 'config', __( 'Manage site configuration' ), async ( configYargs ) => {
