@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	authenticateDeviceToken,
+	buildPairingUrl,
+	clearRemoteServerInfo,
 	createPairingCode,
 	DEVICE_TOKEN_TTL_MS,
 	formatPairingCode,
@@ -12,9 +14,11 @@ import {
 	PAIRING_CODE_TTL_MS,
 	PAIRING_MAX_FAILED_ATTEMPTS,
 	readRemoteAccess,
+	readRemoteServerInfo,
 	RemoteAccessVersionMismatchError,
 	redeemPairingCode,
 	revokeRemoteDevice,
+	setRemoteServerInfo,
 	updateRemoteAccess,
 } from '../remote-access';
 
@@ -271,5 +275,41 @@ describe( 'device tokens', () => {
 		expect( await revokeRemoteDevice( deviceId ) ).toBe( true );
 		expect( await authenticateDeviceToken( token, 2_000 ) ).toBeNull();
 		expect( await revokeRemoteDevice( deviceId ) ).toBe( false );
+	} );
+} );
+
+describe( 'running server record', () => {
+	it( 'remembers where the remote server listens', async () => {
+		await setRemoteServerInfo( { url: 'http://192.168.1.20:8082', pid: 4242 }, 9_000 );
+		expect( await readRemoteServerInfo() ).toEqual( {
+			url: 'http://192.168.1.20:8082',
+			pid: 4242,
+			startedAt: 9_000,
+		} );
+	} );
+
+	it( 'only the process that wrote the record clears it', async () => {
+		await setRemoteServerInfo( { url: 'http://192.168.1.20:8082', pid: 4242 } );
+		await clearRemoteServerInfo( 1 );
+		expect( await readRemoteServerInfo() ).toBeDefined();
+		await clearRemoteServerInfo( 4242 );
+		expect( await readRemoteServerInfo() ).toBeUndefined();
+	} );
+} );
+
+describe( 'buildPairingUrl', () => {
+	it( 'carries the address, the code and the instance id', () => {
+		const url = new URL(
+			buildPairingUrl( {
+				url: 'http://192.168.1.20:8082',
+				code: 'ABCDEFGH2345',
+				instanceId: 'instance-1',
+			} )
+		);
+		expect( url.protocol ).toBe( 'studio-remote:' );
+		expect( url.host ).toBe( 'pair' );
+		expect( url.searchParams.get( 'url' ) ).toBe( 'http://192.168.1.20:8082' );
+		expect( url.searchParams.get( 'code' ) ).toBe( 'ABCDEFGH2345' );
+		expect( url.searchParams.get( 'id' ) ).toBe( 'instance-1' );
 	} );
 } );

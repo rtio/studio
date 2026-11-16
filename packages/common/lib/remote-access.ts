@@ -291,3 +291,39 @@ export function revokeRemoteDevice( deviceId: string ): Promise< boolean > {
 		return state.devices.length < before;
 	} );
 }
+
+// `studio remote pair` runs in another process and needs the running server's address.
+export async function setRemoteServerInfo(
+	info: { url: string; pid: number },
+	now = Date.now()
+): Promise< void > {
+	await updateRemoteAccess( ( state ) => {
+		state.server = { ...info, startedAt: now };
+	} );
+}
+
+export async function clearRemoteServerInfo( pid: number ): Promise< void > {
+	await updateRemoteAccess( ( state ) => {
+		if ( state.server?.pid === pid ) {
+			delete state.server;
+		}
+	} );
+}
+
+export async function readRemoteServerInfo(): Promise< RemoteServerInfo | undefined > {
+	return ( await readRemoteAccess() ).server;
+}
+
+// What the QR code holds. The phone app registers the `studio-remote` scheme.
+export function buildPairingUrl( input: {
+	url: string;
+	code: string;
+	instanceId: string;
+} ): string {
+	const params = new URLSearchParams( {
+		url: input.url,
+		code: input.code,
+		id: input.instanceId,
+	} );
+	return `studio-remote://pair?${ params.toString() }`;
+}
