@@ -77,7 +77,8 @@ export function createRemoteApiGuard() {
 			return;
 		}
 		const header = req.headers.authorization ?? '';
-		const token = header.startsWith( 'Bearer ' ) ? header.slice( 'Bearer '.length ) : '';
+		// The auth scheme is case-insensitive (RFC 7235).
+		const token = /^bearer /i.test( header ) ? header.slice( 'Bearer '.length ) : '';
 		authenticateDeviceToken( token )
 			.then( ( device ) => {
 				if ( ! device ) {

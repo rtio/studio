@@ -103,6 +103,23 @@ describe( 'remote mode', () => {
 		expect( ( await request( { path: '/api/health', token: 'nope' } ) ).status ).toBe( 401 );
 	} );
 
+	it( 'matches the Bearer scheme in any case', async () => {
+		for ( const scheme of [ 'bearer', 'BEARER', 'Bearer' ] ) {
+			const reply = await request( {
+				path: '/api/health',
+				headers: { authorization: `${ scheme } ${ token }` },
+			} );
+			expect( `${ scheme } ${ reply.status }` ).toBe( `${ scheme } 200` );
+		}
+	} );
+
+	it( 'does not take another scheme or a bare token', async () => {
+		for ( const authorization of [ `Basic ${ token }`, token ] ) {
+			const reply = await request( { path: '/api/health', headers: { authorization } } );
+			expect( reply.status ).toBe( 401 );
+		}
+	} );
+
 	it( 'answers 403 for every registered route outside the allowlist', async () => {
 		const blocked = server.apiRoutes
 			.map( ( route ) => ( { ...route, path: route.path.replace( /:[A-Za-z]+/g, 'x' ) } ) )
