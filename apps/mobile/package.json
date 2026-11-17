@@ -5,7 +5,7 @@
 	"description": "Studio's phone app: a remote for Studio Code (Expo / React Native)",
 	"main": "expo-router/entry",
 	"scripts": {
-		"start": "expo start --dev-client --port 8097",
+		"start": "expo start --dev-client --localhost --port 8097",
 		"ios": "expo run:ios --port 8097",
 		"android": "expo run:android --port 8097",
 		"lint": "eslint .",
