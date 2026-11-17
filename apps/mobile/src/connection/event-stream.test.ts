@@ -146,6 +146,32 @@ describe( 'startEventStream', () => {
 		expect( computer.connect ).toHaveBeenCalledTimes( 3 );
 	} );
 
+	it( 'drops a connection that does not open in twenty seconds and tries again', async () => {
+		const computer = fakeComputer();
+		const { statuses } = start( computer );
+		const { connection, fail } = computer.attempts[ 0 ];
+		connection.signal.addEventListener( 'abort', () => fail( new Error( 'aborted' ) ) );
+
+		await vi.advanceTimersByTimeAsync( 19_999 );
+		expect( connection.signal.aborted ).toBe( false );
+		await vi.advanceTimersByTimeAsync( 1 );
+
+		expect( connection.signal.aborted ).toBe( true );
+		expect( statuses ).toEqual( [ 'connecting', 'reconnecting' ] );
+		await vi.advanceTimersByTimeAsync( 1_000 );
+		expect( computer.connect ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'does not drop a connection that opened in time', async () => {
+		const computer = fakeComputer();
+		start( computer );
+		computer.attempts[ 0 ].connection.onOpen();
+
+		await vi.advanceTimersByTimeAsync( 60_000 );
+
+		expect( computer.attempts[ 0 ].connection.signal.aborted ).toBe( false );
+	} );
+
 	it( 'reconnects now when asked, and ignores the connection it dropped', async () => {
 		const computer = fakeComputer();
 		const { stream, statuses, messages } = start( computer );
