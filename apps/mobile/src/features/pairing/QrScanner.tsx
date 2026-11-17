@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRef, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { BackHandler, Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parsePairingUrl } from '../../connection/pairing-link';
 import { space } from '../../theme/typography';
@@ -24,6 +24,16 @@ export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 	const found = useRef( false );
 	const { colors } = useTheme();
 	const insets = useSafeAreaInsets();
+
+	// The scanner is part of the Pair screen, not a route. On Android the system
+	// back gesture must close it, not the app.
+	useEffect( () => {
+		const subscription = BackHandler.addEventListener( 'hardwareBackPress', () => {
+			onCancel();
+			return true;
+		} );
+		return () => subscription.remove();
+	}, [ onCancel ] );
 
 	if ( ! permission ) {
 		return <View style={ [ styles.fill, { backgroundColor: colors.background } ] } />;
