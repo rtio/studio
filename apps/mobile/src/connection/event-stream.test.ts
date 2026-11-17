@@ -172,6 +172,42 @@ describe( 'startEventStream', () => {
 		expect( computer.attempts[ 0 ].connection.signal.aborted ).toBe( false );
 	} );
 
+	it( 'ignores a dropped connection that opens late', () => {
+		const computer = fakeComputer();
+		const { stream, statuses, onOpen } = start( computer );
+
+		stream.reconnect();
+		computer.attempts[ 0 ].connection.onOpen();
+
+		expect( statuses ).toEqual( [ 'connecting' ] );
+		expect( onOpen ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not join the end of a dropped connection to the start of the next one', () => {
+		const computer = fakeComputer();
+		const { stream, messages } = start( computer );
+		computer.attempts[ 0 ].connection.onOpen();
+		computer.attempts[ 0 ].connection.onData( 'data: {"half":' );
+
+		stream.reconnect();
+		computer.attempts[ 1 ].connection.onOpen();
+		computer.attempts[ 1 ].connection.onData( 'data: whole\n\n' );
+
+		expect( messages ).toEqual( [ 'whole' ] );
+	} );
+
+	it( 'does not connect again when it is stopped during a wait', async () => {
+		const computer = fakeComputer();
+		const { stream } = start( computer );
+		computer.attempts[ 0 ].fail( new Error( 'no answer' ) );
+		await settle();
+
+		stream.stop();
+		await vi.advanceTimersByTimeAsync( 60_000 );
+
+		expect( computer.connect ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'reconnects now when asked, and ignores the connection it dropped', async () => {
 		const computer = fakeComputer();
 		const { stream, statuses, messages } = start( computer );
