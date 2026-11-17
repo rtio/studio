@@ -9,6 +9,15 @@ function collect() {
 }
 
 describe( 'createSseParser', () => {
+	it( 'drops an event that grows past the limit and goes on with the next one', () => {
+		const { events, parser } = collect();
+
+		parser.push( 'data: ' + 'x'.repeat( 8_000_001 ) );
+		parser.push( 'data: next\n\n' );
+
+		expect( events ).toEqual( [ { event: 'message', data: 'next' } ] );
+	} );
+
 	it( 'emits one event for one complete block', () => {
 		const { events, parser } = collect();
 		parser.push( 'data: {"channel":"agent"}\n\n' );

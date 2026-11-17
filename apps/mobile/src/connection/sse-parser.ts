@@ -5,6 +5,10 @@ export interface SseEvent {
 	data: string;
 }
 
+// The longest event the parser keeps, in characters. An agent event with the
+// output of a tool can be large, so the limit is generous.
+const MAX_EVENT_LENGTH = 8_000_000;
+
 // Use one parser per connection. A partial block left by a dropped connection
 // would be joined to the start of the next stream.
 export interface SseParser {
@@ -43,6 +47,12 @@ export function createSseParser( onEvent: ( event: SseEvent ) => void ): SsePars
 		push( chunk ) {
 			// Normalizing the whole buffer also joins a CRLF that two chunks split.
 			buffer = ( buffer + chunk ).replace( /\r\n/g, '\n' );
+			// One event that never ends must not fill the phone's memory. It is
+			// dropped, and the stream goes on with the next event.
+			if ( buffer.length > MAX_EVENT_LENGTH && ! buffer.includes( '\n\n' ) ) {
+				buffer = '';
+				return;
+			}
 			let end = buffer.indexOf( '\n\n' );
 			while ( end !== -1 ) {
 				const parsed = parseBlock( buffer.slice( 0, end ) );
