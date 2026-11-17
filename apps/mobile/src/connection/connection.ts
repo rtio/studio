@@ -12,16 +12,19 @@ export function useConnectionState(): ConnectionState {
 	return useSyncExternalStore( connectionStore.subscribe, connectionStore.getState );
 }
 
-// A client for the paired computer. When the computer says this phone is no
-// longer paired, the app forgets that connection and returns to the Pair screen.
+// The computer answered 401 for `connection`: this phone is not paired with it
+// any more. The app forgets that connection and returns to the Pair screen.
+export function reportUnauthorized( connection: Connection ): void {
+	const notice = Date.now() >= connection.expiresAt ? 'expired' : 'unpaired';
+	void connectionStore.clearIfCurrent( connection.deviceId, notice );
+}
+
+// A client for the paired computer.
 export function createConnectionClient( connection: Connection ): ApiClient {
 	return createApiClient( {
 		baseUrl: connection.baseUrl,
 		token: connection.token,
 		fetch,
-		onUnauthorized: () => {
-			const notice = Date.now() >= connection.expiresAt ? 'expired' : 'unpaired';
-			void connectionStore.clearIfCurrent( connection.deviceId, notice );
-		},
+		onUnauthorized: () => reportUnauthorized( connection ),
 	} );
 }
