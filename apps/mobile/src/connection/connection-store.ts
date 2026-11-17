@@ -86,10 +86,11 @@ export function createConnectionStore(
 
 		clear,
 
-		// Forgets the computer because it refused `deviceId`, but only while that
-		// device is still the paired one. An answer that arrives late, for a pairing
-		// the phone already forgot or replaced, changes nothing.
-		async clearIfCurrent( deviceId: string, notice: ConnectionNotice ): Promise< void > {
+		// Forgets the computer that `deviceId` was paired with, but only while that
+		// device is still the paired one. Something that ends late, for a pairing
+		// the phone already forgot or replaced, changes nothing: not the newer
+		// pairing, and not the notice the Pair screen shows.
+		async clearIfCurrent( deviceId: string, notice: ConnectionNotice | null ): Promise< void > {
 			const current = state.get();
 			if ( current.status === 'ready' && current.connection?.deviceId === deviceId ) {
 				await clear( notice );

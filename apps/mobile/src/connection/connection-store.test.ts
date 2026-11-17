@@ -149,6 +149,16 @@ describe( 'createConnectionStore', () => {
 		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: null } );
 	} );
 
+	it( 'keeps the notice when a forget ends after the phone was already unpaired', async () => {
+		const store = createConnectionStore( createMemoryStorage( STORED ), () => NOW );
+		await store.load();
+		await store.clearIfCurrent( CONNECTION.deviceId, 'unpaired' );
+
+		await store.clearIfCurrent( CONNECTION.deviceId, null );
+
+		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: 'unpaired' } );
+	} );
+
 	it( 'still clears the connection in memory when storage fails', async () => {
 		const storage = createMemoryStorage( STORED );
 		const store = createConnectionStore( storage, () => NOW );
