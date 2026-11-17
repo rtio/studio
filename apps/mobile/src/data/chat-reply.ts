@@ -89,7 +89,10 @@ export function applyChatEvent(
 	mark: number
 ): { live: ChatLive; read: boolean } {
 	if ( event.type === 'run.started' ) {
-		return { live: { ...NOTHING_LIVE, runId: event.runId }, read: false };
+		// The replies of the last run stay until a read has them; one it did not
+		// finish counts as complete.
+		const replies = endLast( live.replies, mark );
+		return { live: { ...NOTHING_LIVE, runId: event.runId, replies }, read: false };
 	}
 	if ( live.runId !== null && event.runId !== live.runId ) {
 		return { live, read: false };

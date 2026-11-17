@@ -153,6 +153,17 @@ describe( 'applyChatEvent and visibleEntries', () => {
 		expect( live.replies ).toEqual( [ expect.objectContaining( { runId: 'run-2' } ) ] );
 	} );
 
+	it( 'keeps a complete reply no read has yet when the next run starts', () => {
+		const { live } = play( [
+			update( 'Done' ),
+			end( assistant( 'Done.' ) ),
+			{ runId: 'run-2', type: 'run.started' },
+		] );
+
+		expect( live.runId ).toBe( 'run-2' );
+		expect( live.replies ).toEqual( [ expect.objectContaining( { endedAt: 2 } ) ] );
+	} );
+
 	it( 'does not follow a run because of its end', () => {
 		const ended = play( [ { runId: 'run-1', type: 'run.exited' } ] ).live;
 
@@ -170,9 +181,13 @@ describe( 'applyChatEvent and visibleEntries', () => {
 		] );
 
 		expect( reads ).toEqual( [ false, false, false, false, false, false ] );
+		// The old run's reply stays as it was when the new run started, until a
+		// read has it; its late events change nothing.
 		expect( live.replies ).toEqual( [
+			expect.objectContaining( { runId: 'run-1', endedAt: 3 } ),
 			expect.objectContaining( { runId: 'run-2', endedAt: null } ),
 		] );
+		expect( JSON.stringify( live.replies ) ).not.toContain( 'Old again' );
 	} );
 
 	it( 'shows the error of a run that could not start, and drops it when the turn saved its own', () => {
