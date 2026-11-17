@@ -1,14 +1,20 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useMemo } from 'react';
-import { Linking, Platform } from 'react-native';
+import { Linking, Platform, TurboModuleRegistry } from 'react-native';
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { useTheme } from '../../theme/use-theme';
 import { Text } from '../../ui/Text';
 import { isOpenableLink } from './links';
 import { markdownStyle } from './markdown-style';
+import type { TurboModule } from 'react-native';
 import type { MarkdownImageBlock, MarkdownImageSource } from 'react-native-enriched-markdown';
 
 const MONO_FONT = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+
+// The library finds the images in the text with this native module. Without
+// it, it loads every image URL itself and the rule below does not apply, so
+// the text shows as plain text instead.
+const PARSER_LINKED = TurboModuleRegistry.get< TurboModule >( 'EnrichedMarkdownParser' ) !== null;
 
 // An image in agent text would make the phone fetch a URL the agent wrote.
 // An empty source requests nothing. It covers every image: inline, in a list,
@@ -42,6 +48,9 @@ export function Markdown( { text, streaming }: { text: string; streaming: boolea
 	const { colors } = useTheme();
 	const style = useMemo( () => markdownStyle( colors, MONO_FONT ), [ colors ] );
 
+	if ( ! PARSER_LINKED ) {
+		return <Text>{ text }</Text>;
+	}
 	return (
 		<EnrichedMarkdownText
 			flavor="github"
