@@ -20,7 +20,7 @@ export function normalizeBaseUrl( input: string ): string | null {
 		return null;
 	}
 	const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test( trimmed ) ? trimmed : `http://${ trimmed }`;
-	const match = /^(https?):\/\/([^\s/?#@]+)$/i.exec( withScheme );
+	const match = /^(https?):\/\/([^\s/\\?#@]+)$/i.exec( withScheme );
 	if ( ! match ) {
 		return null;
 	}
@@ -34,8 +34,7 @@ export function normalizePairingCode( input: string ): string | null {
 	return code.length === PAIRING_CODE_LENGTH && /^[0-9A-Z]+$/.test( code ) ? code : null;
 }
 
-// Builds a link from separate parts: the fields a person typed, or the query
-// values of a pairing URL that the router already split.
+// Builds a link from separate parts. Typed fields have no id.
 export function pairingLinkFromParts( parts: {
 	url?: string;
 	code?: string;
@@ -47,6 +46,22 @@ export function pairingLinkFromParts( parts: {
 		return null;
 	}
 	return parts.id ? { baseUrl, code, instanceId: parts.id } : { baseUrl, code };
+}
+
+// Builds a link from the three values of a pairing link: a scanned QR code, or
+// a link that opened the app. Such a link always names the computer, so the
+// phone can check which computer answers. Anything that is not a single text
+// value is refused (a router gives a repeated value as a list).
+export function pairingLinkFromParams( params: {
+	url?: unknown;
+	code?: unknown;
+	id?: unknown;
+} ): PairingLink | null {
+	const { url, code, id } = params;
+	if ( typeof url !== 'string' || typeof code !== 'string' || typeof id !== 'string' || ! id ) {
+		return null;
+	}
+	return pairingLinkFromParts( { url, code, id } );
 }
 
 function decodeQueryValue( value: string ): string | null {
@@ -79,7 +94,7 @@ export function parsePairingUrl( input: string ): PairingLink | null {
 		values.set( part.slice( 0, separator ), value );
 	}
 
-	return pairingLinkFromParts( {
+	return pairingLinkFromParams( {
 		url: values.get( 'url' ),
 		code: values.get( 'code' ),
 		id: values.get( 'id' ),

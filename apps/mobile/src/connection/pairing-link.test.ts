@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	normalizeBaseUrl,
 	normalizePairingCode,
+	pairingLinkFromParams,
 	pairingLinkFromParts,
 	parsePairingUrl,
 } from './pairing-link';
@@ -26,6 +27,12 @@ describe( 'normalizeBaseUrl', () => {
 		expect( normalizeBaseUrl( 'ftp://192.168.1.20' ) ).toBeNull();
 		expect( normalizeBaseUrl( 'http://192.168.1.20:8082/api' ) ).toBeNull();
 		expect( normalizeBaseUrl( 'http://someone@192.168.1.20' ) ).toBeNull();
+	} );
+
+	it( 'rejects a query, a fragment and a backslash', () => {
+		expect( normalizeBaseUrl( 'http://192.168.1.20:8082?next=1' ) ).toBeNull();
+		expect( normalizeBaseUrl( 'http://192.168.1.20:8082#top' ) ).toBeNull();
+		expect( normalizeBaseUrl( 'http://192.168.1.20\\example.com' ) ).toBeNull();
 	} );
 } );
 
@@ -56,6 +63,41 @@ describe( 'pairingLinkFromParts', () => {
 	} );
 } );
 
+describe( 'pairingLinkFromParams', () => {
+	it( 'builds a link from the three values of a pairing link', () => {
+		expect(
+			pairingLinkFromParams( {
+				url: 'http://192.168.1.20:8082',
+				code: 'K7QM2XVA9D3H',
+				id: 'instance-1',
+			} )
+		).toEqual( {
+			baseUrl: 'http://192.168.1.20:8082',
+			code: 'K7QM2XVA9D3H',
+			instanceId: 'instance-1',
+		} );
+	} );
+
+	it( 'returns null without the id of the computer', () => {
+		expect(
+			pairingLinkFromParams( { url: 'http://192.168.1.20:8082', code: 'K7QM2XVA9D3H' } )
+		).toBeNull();
+		expect(
+			pairingLinkFromParams( { url: 'http://192.168.1.20:8082', code: 'K7QM2XVA9D3H', id: '' } )
+		).toBeNull();
+	} );
+
+	it( 'returns null when a value came more than once, which a router gives as a list', () => {
+		expect(
+			pairingLinkFromParams( {
+				url: [ 'http://192.168.1.20:8082', 'http://10.0.0.9:8082' ],
+				code: 'K7QM2XVA9D3H',
+				id: 'instance-1',
+			} )
+		).toBeNull();
+	} );
+} );
+
 describe( 'parsePairingUrl', () => {
 	it( 'reads the URL that studio remote puts in the QR code', () => {
 		const params = new URLSearchParams( {
@@ -79,7 +121,10 @@ describe( 'parsePairingUrl', () => {
 	} );
 
 	it( 'returns null when a value is missing or badly encoded', () => {
-		expect( parsePairingUrl( 'studio-remote://pair?code=K7QM2XVA9D3H' ) ).toBeNull();
+		expect( parsePairingUrl( 'studio-remote://pair?code=K7QM2XVA9D3H&id=instance-1' ) ).toBeNull();
+		expect(
+			parsePairingUrl( 'studio-remote://pair?url=http%3A%2F%2F10.0.0.5%3A8082&code=K7QM2XVA9D3H' )
+		).toBeNull();
 		expect( parsePairingUrl( 'studio-remote://pair?url=%E0%A4%A&code=K7QM2XVA9D3H' ) ).toBeNull();
 	} );
 } );

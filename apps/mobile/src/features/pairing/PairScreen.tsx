@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useConnectionState } from '../../connection/connection';
 import { PairingError } from '../../connection/pairing';
-import { pairingLinkFromParts } from '../../connection/pairing-link';
+import { pairingLinkFromParams, pairingLinkFromParts } from '../../connection/pairing-link';
 import { pairThisPhone } from '../../data/connection-actions';
 import { Button } from '../../ui/Button';
 import { Screen } from '../../ui/Screen';
@@ -15,17 +15,19 @@ import type { PairingLink } from '../../connection/pairing-link';
 
 // Shown until a computer is paired. A person scans the QR code, or types the
 // address and the code. A pairing link that opens the app (from the system
-// camera, for example) arrives here as route parameters and pairs at once.
+// camera, for example) arrives here as route parameters. Any app or web page
+// can open such a link, so it pairs only after the person confirms the address.
 export function PairScreen() {
-	const params = useLocalSearchParams< { url?: string; code?: string; id?: string } >();
+	const params = useLocalSearchParams();
 	const state = useConnectionState();
+	const [ answeredLinkCode, setAnsweredLinkCode ] = useState< string | null >( null );
 	const [ address, setAddress ] = useState( '' );
 	const [ code, setCode ] = useState( '' );
 	const [ scanning, setScanning ] = useState( false );
 	const [ pairing, setPairing ] = useState( false );
 	const [ failure, setFailure ] = useState< string | null >( null );
 
-	const pair = useCallback( async ( link: PairingLink | null ) => {
+	async function pair( link: PairingLink | null ) {
 		if ( ! link ) {
 			setFailure( __( 'Enter the address and the 12-character code that “studio remote” shows.' ) );
 			return;
@@ -41,14 +43,34 @@ export function PairScreen() {
 		} finally {
 			setPairing( false );
 		}
-	}, [] );
+	}
 
-	const { url: linkUrl, code: linkCode, id: linkId } = params;
-	useEffect( () => {
-		if ( linkUrl && linkCode ) {
-			void pair( pairingLinkFromParts( { url: linkUrl, code: linkCode, id: linkId } ) );
-		}
-	}, [ pair, linkUrl, linkCode, linkId ] );
+	const linkFromOutside = pairingLinkFromParams( params );
+	if ( linkFromOutside && linkFromOutside.code !== answeredLinkCode ) {
+		return (
+			<Screen>
+				<Text variant="title">{ __( 'Pair with this computer?' ) }</Text>
+				<Text variant="bodyStrong">{ linkFromOutside.baseUrl }</Text>
+				<Text color="mutedForeground">
+					{ __(
+						'A pairing link opened Studio. Continue only if this is the address that “studio remote” shows on your own computer.'
+					) }
+				</Text>
+				<Button
+					label={ __( 'Pair' ) }
+					onPress={ () => {
+						setAnsweredLinkCode( linkFromOutside.code );
+						void pair( linkFromOutside );
+					} }
+				/>
+				<Button
+					variant="secondary"
+					label={ __( 'Cancel' ) }
+					onPress={ () => setAnsweredLinkCode( linkFromOutside.code ) }
+				/>
+			</Screen>
+		);
+	}
 
 	if ( scanning ) {
 		return (
