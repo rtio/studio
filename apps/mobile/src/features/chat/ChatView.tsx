@@ -70,11 +70,20 @@ export function ChatView( { connection, chatId, topInset, bottomInset }: ChatVie
 			) }
 			// In an upside-down list the header is at the bottom.
 			ListHeaderComponent={
-				<View style={ { paddingBottom: bottomInset } }>
+				<View style={ [ styles.bottom, { paddingBottom: bottomInset } ] }>
 					{ chat.runError && (
 						<Text color="destructive" accessibilityRole="alert">
 							{ turnErrorText( chat.runError ) }
 						</Text>
+					) }
+					{ /* A later read failed: what shows may be out of date. */ }
+					{ chat.isError && status === 'live' && (
+						<View style={ styles.stale }>
+							<Text color="mutedForeground" style={ styles.staleText }>
+								{ __( 'The latest changes could not be loaded.' ) }
+							</Text>
+							<Button variant="secondary" label={ __( 'Try again' ) } onPress={ chat.refetch } />
+						</View>
 					) }
 				</View>
 			}
@@ -87,6 +96,9 @@ export function ChatView( { connection, chatId, topInset, bottomInset }: ChatVie
 
 const styles = StyleSheet.create( {
 	content: { paddingHorizontal: space[ 4 ] },
+	bottom: { gap: space[ 3 ] },
+	stale: { flexDirection: 'row', alignItems: 'center', gap: space[ 3 ] },
+	staleText: { flex: 1 },
 	empty: {
 		flex: 1,
 		alignItems: 'center',
