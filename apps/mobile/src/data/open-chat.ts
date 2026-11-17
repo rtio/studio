@@ -15,7 +15,9 @@ const DRAW_EVERY_MS = 50;
 
 // The computer saves a tool result and the next message within moments, and
 // each read downloads the whole chat. Reads asked for within this time are one
-// read, which starts after all of them.
+// read, which starts after all of them. A read on its way is never stopped (on
+// a large chat that could keep every read from finishing while the agent
+// works): when it arrives having started too early, the chat is read again.
 const READ_AFTER_MS = 400;
 
 // Keeps what the stream adds to the open chat. `read` is called when the chat
@@ -26,6 +28,8 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 	let latest = NO_CHAT;
 	// Goes up with each event. A read notes it when it starts (see chat-reply.ts).
 	let marks = 0;
+	// The mark at the last time a read was asked for.
+	let wanted = 0;
 	let drawTimer: ReturnType< typeof setTimeout > | null = null;
 	let readTimer: ReturnType< typeof setTimeout > | null = null;
 
@@ -50,6 +54,12 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 		}
 	}
 
+	function readNow( chatId: string ) {
+		cancelRead();
+		wanted = marks;
+		read( chatId );
+	}
+
 	function readSoon( chatId: string ) {
 		if ( readTimer ) {
 			return;
@@ -57,13 +67,14 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 		readTimer = setTimeout( () => {
 			readTimer = null;
 			if ( latest.chatId === chatId ) {
-				read( chatId );
+				readNow( chatId );
 			}
 		}, READ_AFTER_MS );
 	}
 
 	function reset( chatId: string | null ) {
 		cancelRead();
+		wanted = 0;
 		latest = { chatId, live: NOTHING_LIVE };
 		drawNow();
 	}
@@ -97,7 +108,8 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 			}
 		},
 
-		// A read that started at `readAt` arrived: drop the replies it has.
+		// A read that started at `readAt` arrived: drop the replies it has, and
+		// read again if it started before the last time a read was asked for.
 		settled( chatId: string, readAt: number ) {
 			if ( latest.chatId !== chatId ) {
 				return;
@@ -106,6 +118,9 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 			if ( live !== latest.live ) {
 				latest = { chatId, live };
 				drawNow();
+			}
+			if ( readAt < wanted ) {
+				readSoon( chatId );
 			}
 		},
 
@@ -119,8 +134,7 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 			marks += 1;
 			latest = { chatId, live: endReply( latest.live, marks ) };
 			drawNow();
-			cancelRead();
-			read( chatId );
+			readNow( chatId );
 		},
 
 		clear() {

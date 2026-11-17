@@ -4,6 +4,7 @@ import { openEventStream } from '../connection/open-event-stream';
 import { verifyComputer } from '../connection/verify-computer';
 import { createValueStore } from '../lib/value-store';
 import { withUpdatedSite } from './chat-list';
+import { requestChatRead } from './chat-read';
 import { startLiveSession } from './live-session';
 import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
@@ -25,19 +26,11 @@ let live: {
 } | null = null;
 
 // What the stream adds to the open chat. A read it asks for goes to the
-// paired computer, and only while the link is live, like every request with
-// the token: the chat's query is disabled otherwise (data/use-chat.ts).
+// paired computer only while the link is live (data/chat-read.ts).
 export const openChat = createOpenChat( ( chatId ) => {
-	if ( ! live ) {
-		return;
+	if ( live ) {
+		void requestChatRead( queryClient, chatKey( live.connection, chatId ) );
 	}
-	const queryKey = chatKey( live.connection, chatId );
-	// A read on its way may have started before what this read is for. While
-	// the chat has no data yet, the cache would join that read instead of
-	// starting a new one, so stop it first.
-	void queryClient
-		.cancelQueries( { queryKey } )
-		.then( () => queryClient.invalidateQueries( { queryKey } ) );
 } );
 
 // Gives the live session (data/live-session.ts) its parts on a phone: the

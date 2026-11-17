@@ -80,6 +80,25 @@ describe( 'createOpenChat', () => {
 		expect( chat.store.get().live.replies ).toEqual( [] );
 	} );
 
+	it( 'reads again when a read arrives that started before the last time a read was asked for', () => {
+		const read = vi.fn();
+		const chat = createOpenChat( read );
+		chat.select( 'chat-1' );
+		// A read that started now, before the question below was saved.
+		const early = chat.mark();
+		chat.handle( 'chat-1', { runId: 'run-1', type: 'question.asked' } );
+		vi.advanceTimersByTime( 400 );
+		expect( read ).toHaveBeenCalledTimes( 1 );
+
+		chat.settled( 'chat-1', early );
+		vi.advanceTimersByTime( 400 );
+		expect( read ).toHaveBeenCalledTimes( 2 );
+
+		chat.settled( 'chat-1', chat.mark() );
+		vi.advanceTimersByTime( 400 );
+		expect( read ).toHaveBeenCalledTimes( 2 );
+	} );
+
 	it( 'ignores events of a chat that is not open', () => {
 		const read = vi.fn();
 		const chat = createOpenChat( read );

@@ -2,11 +2,11 @@ import { entriesToTranscriptItems } from '@studio/agent/protocol/transcript/tran
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createConnectionClient } from '../connection/connection';
+import { createChatReader } from './chat-read';
 import { NOTHING_LIVE, visibleEntries } from './chat-reply';
 import { chatRows } from './chat-rows';
 import { activityStore, liveStatusStore, openChat } from './live-connection';
 import { chatKey } from './query-keys';
-import { parseChatEntries } from './remote-schemas';
 import type { ChatRow } from './chat-rows';
 import type { Connection } from '../connection/connection-store';
 
@@ -36,20 +36,8 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 		gcTime: 0,
 		refetchOnMount: 'always',
 		queryKey: chatKey( connection, chatId ),
-		queryFn: async ( { signal } ) => {
-			// Noted before the request: a reply shown from the stream is replaced
-			// only by a read that started after it was complete.
-			const readAt = openChat.mark();
-			const payload = await createConnectionClient( connection ).get(
-				`/api/sessions/${ encodeURIComponent( chatId ) }`,
-				{ signal }
-			);
-			const entries = parseChatEntries( payload );
-			if ( ! entries ) {
-				throw new Error( 'The computer did not send a chat.' );
-			}
-			return { entries, readAt };
-		},
+		queryFn: ( { signal } ) =>
+			createChatReader( createConnectionClient( connection ).get, openChat.mark )( chatId, signal ),
 	} );
 
 	useEffect( () => {
