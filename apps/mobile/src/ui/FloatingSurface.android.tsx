@@ -12,7 +12,13 @@ export function FloatingSurface( { children, style, radius = 22 }: FloatingSurfa
 	return (
 		<View
 			style={ [
-				{ borderRadius: radius, backgroundColor: colors.surfaceContainerHigh, elevation: 3 },
+				{
+					borderRadius: radius,
+					backgroundColor: colors.surfaceContainerHigh,
+					elevation: 3,
+					// Keeps children inside the rounded corners. The shadow stays.
+					overflow: 'hidden',
+				},
 				style,
 			] }
 		>
