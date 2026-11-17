@@ -33,7 +33,7 @@ In a second terminal, from `apps/mobile`, build the native app and install it on
 npm run ios
 ```
 
-`npm run ios` uses the dev server that already runs on port 8097. Start the dev server first. If none runs, `npm run ios` starts its own, and that one is not limited to 127.0.0.1.
+`npm run ios` does not start a dev server of its own, so start the dev server first.
 
 For a booted Android emulator, the script is:
 
