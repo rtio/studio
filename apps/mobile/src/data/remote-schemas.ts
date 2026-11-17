@@ -61,10 +61,8 @@ export const parseSessions = ( payload: unknown ) => parseList( sessionSchema, p
 export const parseActiveRuns = ( payload: unknown ) => parseList( activeRunSchema, payload );
 
 // The saved entries of one chat, from `GET /api/sessions/:id`. The transcript
-// code reads them as the agent library wrote them, so they are kept whole.
-// That includes what tools returned, which can hold secrets, such as the
-// password of a site the agent created: the phone keeps the open chat in
-// memory only, and shows a tool step as one line without its result.
+// code reads them as the agent library wrote them, so they are kept as they
+// are, except what tools returned (see `withoutToolOutput`).
 const chatSchema = z.object( { entries: z.array( z.unknown() ) } );
 
 function isRecord( value: unknown ): value is Record< string, unknown > {
@@ -99,11 +97,24 @@ function isReadableEntry( entry: unknown ): entry is SessionEntry {
 	);
 }
 
+// What a tool returned can be long (a screenshot in base64) and can hold
+// secrets (the password of a site the agent created). The phone shows a step
+// as one line and needs only whether it failed, so it keeps nothing else.
+function withoutToolOutput( entry: SessionEntry ): SessionEntry {
+	if ( entry.type !== 'message' || entry.message.role !== 'toolResult' ) {
+		return entry;
+	}
+	const { details: _details, ...message } = entry.message;
+	return { ...entry, message: { ...message, content: [] } };
+}
+
 // Returns null when the answer is not a chat at all. An entry the transcript
 // cannot read is skipped, so one odd entry does not hide the chat.
 export function parseChatEntries( payload: unknown ): SessionEntry[] | null {
 	const parsed = chatSchema.safeParse( payload );
-	return parsed.success ? parsed.data.entries.filter( isReadableEntry ) : null;
+	return parsed.success
+		? parsed.data.entries.filter( isReadableEntry ).map( withoutToolOutput )
+		: null;
 }
 
 // An agent event. `message` events wrap an event of the agent library

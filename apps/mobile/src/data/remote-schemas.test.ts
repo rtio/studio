@@ -135,6 +135,37 @@ describe( 'parseChatEntries', () => {
 		] );
 	} );
 
+	it( 'keeps whether a tool failed, and nothing it returned', () => {
+		const result = {
+			type: 'message',
+			id: 'e3',
+			parentId: 'e2',
+			timestamp: '2026-11-17T10:00:03.000Z',
+			message: {
+				role: 'toolResult',
+				toolCallId: 'call-1',
+				toolName: 'site_create',
+				content: [ { type: 'text', text: 'Admin password: hunter2' } ],
+				details: { diff: '+secret' },
+				isError: false,
+			},
+		};
+
+		const [ kept ] = parseChatEntries( { entries: [ result ] } ) ?? [];
+
+		expect( kept ).toEqual( {
+			...result,
+			message: {
+				role: 'toolResult',
+				toolCallId: 'call-1',
+				toolName: 'site_create',
+				content: [],
+				isError: false,
+			},
+		} );
+		expect( JSON.stringify( kept ) ).not.toContain( 'hunter2' );
+	} );
+
 	it( 'returns null for an answer that is not a chat', () => {
 		expect( parseChatEntries( { error: 'Session not found' } ) ).toBeNull();
 		expect( parseChatEntries( [] ) ).toBeNull();
