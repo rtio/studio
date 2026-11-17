@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** pairing and the drawer. The app pairs with `studio remote`, lists the computer's sites and chats, and keeps them live: site status, a spinner on a chat that is working, a dot on a chat that waits for an answer. The conversation itself is not built yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
+**Status:** pairing, the drawer and reading a chat. The app pairs with `studio remote`, lists the computer's sites and chats, keeps them live, and shows the open chat as the agent works: its reply as it is written, its steps, its questions. It cannot send a message, answer or stop a run yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
 
 ## What it needs
 
@@ -83,9 +83,19 @@ While the app is paired it keeps one event stream open to the computer (`GET /ap
 
 Before each try the app reads `/.well-known/studio/remote` without its token and compares the instance id with the paired one. It sends the token only when they match, and it reads the sites and chats only while the link is live. This keeps the token from another device that got the paired address. It is not a defense against an attacker: the id is not a secret and the connection is plain HTTP.
 
+## The open chat
+
+The phone builds the transcript with the same code as Studio's own chat view, which lives in `packages/agent/protocol/transcript/`. It reads the chat with `GET /api/sessions/:id` when the chat opens, and again each time the computer saves something new in it: the computer writes the prompt, each message, each tool result, a question and the end of a turn to the chat file before it sends the event that tells about it. Reads asked for within 400 ms are one read, because each read downloads the whole chat. Between those reads, the reply the agent is writing comes from the event stream, drawn at most every 50 ms.
+
+What the phone does not show:
+
+- the result of a tool step, only its one-line label: results can be long, and some hold secrets, such as the password of a site the agent created;
+- images: an image in the agent's text is never requested; an image on its own line, and a screenshot, show as their description;
+- links other than `http` and `https`, and links to the computer's own `localhost`, which would reach the phone itself. The text cannot be selected, and iOS shows no link menu or preview on a long press: both would get around this rule.
+
 ## Work without Studio
 
-A spinner or a question dot in the drawer needs an agent run. For work on the app there is a stand-in server with made-up sites and chats and a loop of events:
+A spinner, a question or live text needs an agent run. For work on the app there is a stand-in server with made-up sites and chats and a loop of events. In "Add a blog" it plays a whole run: the prompt, a streamed reply with a step, a question that is answered on the computer, and a final reply. It logs any request for the image in that reply, which the app must never make.
 
 ```bash
 node scripts/fake-remote.mjs
