@@ -73,6 +73,11 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 						/>
 					) ) }
 					{ sites.isPending && <Spinner /> }
+					{ sites.isError && (
+						<Text color="mutedForeground" style={ styles.note }>
+							{ __( 'The sites did not load.' ) }
+						</Text>
+					) }
 				</View>
 			) }
 			<Text variant="label" color="mutedForeground" style={ styles.heading }>
@@ -174,6 +179,7 @@ const styles = StyleSheet.create( {
 	header: { gap: space[ 2 ] },
 	heading: { paddingHorizontal: space[ 3 ], paddingTop: space[ 3 ], paddingBottom: space[ 1 ] },
 	empty: { paddingHorizontal: space[ 3 ], gap: space[ 2 ] },
+	note: { paddingHorizontal: space[ 3 ], paddingVertical: space[ 2 ] },
 	footer: {
 		flexDirection: 'row',
 		alignItems: 'center',
