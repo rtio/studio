@@ -49,8 +49,13 @@ export interface ApiClientOptions {
 	onUnauthorized?: () => void;
 }
 
+interface RequestOptions {
+	// Lets the caller stop the request. A stopped request throws UnreachableError.
+	signal?: AbortSignal;
+}
+
 export interface ApiClient {
-	get: ( path: string ) => Promise< unknown >;
+	get: ( path: string, options?: RequestOptions ) => Promise< unknown >;
 	post: ( path: string, body?: unknown ) => Promise< unknown >;
 	delete: ( path: string ) => Promise< unknown >;
 }
@@ -70,9 +75,19 @@ function readErrorMessage( payload: unknown, status: number ): string {
 export function createApiClient( options: ApiClientOptions ): ApiClient {
 	const { baseUrl, token, fetch, timeoutMs = 10_000, onUnauthorized } = options;
 
-	async function request( method: string, path: string, body?: unknown ): Promise< unknown > {
+	async function request(
+		method: string,
+		path: string,
+		body?: unknown,
+		callerSignal?: AbortSignal
+	): Promise< unknown > {
 		const controller = new AbortController();
 		const timer = setTimeout( () => controller.abort(), timeoutMs );
+		const stop = () => controller.abort();
+		if ( callerSignal?.aborted ) {
+			stop();
+		}
+		callerSignal?.addEventListener( 'abort', stop );
 		const headers: Record< string, string > = { Accept: 'application/json' };
 		if ( token ) {
 			headers.Authorization = `Bearer ${ token }`;
@@ -93,6 +108,7 @@ export function createApiClient( options: ApiClientOptions ): ApiClient {
 			throw new UnreachableError();
 		} finally {
 			clearTimeout( timer );
+			callerSignal?.removeEventListener( 'abort', stop );
 		}
 
 		if ( response.status === 401 ) {
@@ -116,7 +132,7 @@ export function createApiClient( options: ApiClientOptions ): ApiClient {
 	}
 
 	return {
-		get: ( path ) => request( 'GET', path ),
+		get: ( path, options ) => request( 'GET', path, undefined, options?.signal ),
 		post: ( path, body ) => request( 'POST', path, body ),
 		delete: ( path ) => request( 'DELETE', path ),
 	};

@@ -109,6 +109,40 @@ describe( 'createApiClient', () => {
 		await expect( api.get( '/api/health' ) ).rejects.toBeInstanceOf( UnreachableError );
 	} );
 
+	it( 'stops when the caller cancels the request', async () => {
+		const fetch = vi.fn< FetchLike >(
+			( _url, init ) =>
+				new Promise( ( _resolve, reject ) => {
+					init?.signal?.addEventListener( 'abort', () => reject( new Error( 'aborted' ) ) );
+				} )
+		);
+		const api = createApiClient( { baseUrl: 'http://10.0.0.5:8082', token: 't', fetch } );
+		const caller = new AbortController();
+
+		const pending = api
+			.get( '/api/sessions', { signal: caller.signal } )
+			.catch( ( caught: unknown ) => caught );
+		caller.abort();
+
+		expect( await pending ).toBeInstanceOf( UnreachableError );
+	} );
+
+	it( 'does not start a request the caller already cancelled', async () => {
+		const fetch = vi.fn< FetchLike >( async ( _url, init ) => {
+			if ( init?.signal?.aborted ) {
+				throw new Error( 'aborted' );
+			}
+			return answer( 200, {} );
+		} );
+		const api = createApiClient( { baseUrl: 'http://10.0.0.5:8082', token: 't', fetch } );
+		const caller = new AbortController();
+		caller.abort();
+
+		await expect( api.get( '/api/sessions', { signal: caller.signal } ) ).rejects.toBeInstanceOf(
+			UnreachableError
+		);
+	} );
+
 	it( 'stops waiting after the timeout and throws UnreachableError', async () => {
 		vi.useFakeTimers();
 		const fetch = vi.fn< FetchLike >(
