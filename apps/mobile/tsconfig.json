@@ -3,12 +3,5 @@
 	"compilerOptions": {
 		"strict": true
 	},
-	"include": [
-		"src/**/*.ts",
-		"src/**/*.tsx",
-		"app.config.ts",
-		"scripts/**/*.mjs",
-		".expo/types/**/*.ts",
-		"expo-env.d.ts"
-	]
+	"include": ["src/**/*.ts", "src/**/*.tsx", "app.config.ts", "scripts/**/*.mjs"]
 }
