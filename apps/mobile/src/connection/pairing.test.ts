@@ -129,7 +129,7 @@ describe( 'pairWithComputer', () => {
 		);
 	} );
 
-	it( 'says the code is wrong when the computer refuses it', async () => {
+	it( 'says the code is wrong when the computer refuses it, and fails on a malformed request', async () => {
 		const refused = fakeComputer(
 			{ status: 200, payload: DESCRIPTOR },
 			{ status: 401, payload: { error: 'Pairing code is not valid' } }
@@ -140,7 +140,8 @@ describe( 'pairWithComputer', () => {
 		);
 
 		expect( await failureOf( refused ) ).toBe( 'code-invalid' );
-		expect( await failureOf( malformed ) ).toBe( 'code-invalid' );
+		// A 400 means the request itself was wrong, which no other code would fix.
+		expect( await failureOf( malformed ) ).toBe( 'failed' );
 	} );
 
 	it( 'says to wait when the computer limits pairing attempts', async () => {

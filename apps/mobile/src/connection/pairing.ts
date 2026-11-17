@@ -91,9 +91,6 @@ export async function pairWithComputer( input: PairingInput ): Promise< Connecti
 		if ( error instanceof UnauthorizedError ) {
 			throw new PairingError( 'code-invalid' );
 		}
-		if ( error instanceof HttpError && error.status === 400 ) {
-			throw new PairingError( 'code-invalid' );
-		}
 		if ( error instanceof HttpError && error.status === 429 ) {
 			throw new PairingError( 'too-many-attempts' );
 		}
