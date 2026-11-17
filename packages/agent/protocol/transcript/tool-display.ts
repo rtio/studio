@@ -1,5 +1,5 @@
-import { getInputString, getToolDetail, getToolDisplayName } from '@studio/agent/protocol/tools';
 import { __ } from '@wordpress/i18n';
+import { getInputString, getToolDetail, getToolDisplayName } from '@studio/agent/protocol/tools';
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
 

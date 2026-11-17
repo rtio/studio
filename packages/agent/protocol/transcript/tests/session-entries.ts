@@ -1,4 +1,4 @@
-import type { SessionEntry } from '@/data/core';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export function visualAnnotationsEntry(
 	visualAnnotations: Array< {

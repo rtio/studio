@@ -1,3 +1,9 @@
+import {
+	assistantToolCallEntry,
+	promptEntry,
+	toolResultEntry,
+	turnClosedEntry,
+} from '@studio/agent/protocol/transcript/tests/session-entries';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -9,12 +15,6 @@ import {
 	type FakeConnectorInitialState,
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import {
-	assistantToolCallEntry,
-	promptEntry,
-	toolResultEntry,
-	turnClosedEntry,
-} from '@/test/session-entries';
 
 const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 const site = makeSite( { id: 'one', name: 'Test site' } );

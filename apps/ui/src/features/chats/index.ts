@@ -5,7 +5,7 @@ export { SessionView } from './session-view';
 export {
 	entriesToTranscriptItems,
 	type TranscriptItem,
-} from './session-view/conversation/transcript-items';
+} from '@studio/agent/protocol/transcript/transcript-items';
 export { SessionHeader } from './session-view/session-header';
 export { getSessionTitle } from './session-view/session-chat-actions';
 export { SiteWorkspace } from './site-workspace';

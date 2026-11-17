@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { formatElapsed, TurnActivityLine } from '@/features/chats/session-view/conversation/trace';
-import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
+import type { TurnActivity } from '@studio/agent/protocol/transcript/transcript-items';
 
 const activity: TurnActivity = {
 	kind: 'activity',

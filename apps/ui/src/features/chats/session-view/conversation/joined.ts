@@ -1,5 +1,5 @@
-import { getSender } from '@/features/chats/session-view/conversation/transcript-items';
-import type { TranscriptItem } from '@/features/chats/session-view/conversation/transcript-items';
+import { getSender } from '@studio/agent/protocol/transcript/transcript-items';
+import type { TranscriptItem } from '@studio/agent/protocol/transcript/transcript-items';
 
 export interface Joined {
 	joinedAbove?: boolean;

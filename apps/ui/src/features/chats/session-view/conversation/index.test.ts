@@ -1,11 +1,4 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import {
-	loadedSession,
-	renderConversation,
-} from '@/features/chats/session-view/conversation/test-render';
-import { createFakeConnector } from '@/test/fake-connector';
 import {
 	agentQuestionEntry,
 	assistantTextEntry,
@@ -13,7 +6,14 @@ import {
 	promptEntry,
 	toolResultEntry,
 	turnClosedEntry,
-} from '@/test/session-entries';
+} from '@studio/agent/protocol/transcript/tests/session-entries';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import {
+	loadedSession,
+	renderConversation,
+} from '@/features/chats/session-view/conversation/test-render';
+import { createFakeConnector } from '@/test/fake-connector';
 import type { SessionEntry } from '@/data/core';
 
 it( 'shows image notes without a redundant label and keeps actual element references', () => {

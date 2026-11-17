@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { entriesToTranscriptItems } from '@/features/chats';
 import {
 	assistantTextEntry,
 	assistantToolCallEntry,
 	promptEntry,
 	toolResultEntry,
 	turnClosedEntry,
-} from '@/test/session-entries';
+} from '@studio/agent/protocol/transcript/tests/session-entries';
+import { describe, expect, it } from 'vitest';
+import { entriesToTranscriptItems } from '@/features/chats';
 import { transcriptToText } from './transcript-text';
 
 describe( 'transcriptToText', () => {

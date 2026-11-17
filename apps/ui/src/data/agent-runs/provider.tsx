@@ -3,6 +3,10 @@ import { getAgentEndFailure } from '@studio/agent/protocol/errors';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
+import {
+	streamingReplyEntry,
+	type StreamingReply,
+} from '@studio/agent/protocol/transcript/streaming-reply';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
@@ -18,7 +22,6 @@ import {
 	type AgentRunAction,
 	type SendMessageOptions,
 } from './store';
-import { streamingReplyEntry, type StreamingReply } from './streaming-reply';
 import type {
 	AgentEvent,
 	AgentRunEvent,

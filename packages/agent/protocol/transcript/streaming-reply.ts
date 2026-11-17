@@ -1,4 +1,4 @@
-import type { SessionEntry } from '@/data/core';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 // The reply pi is still writing: one optimistic entry, rewritten as it grows.
 export interface StreamingReply {

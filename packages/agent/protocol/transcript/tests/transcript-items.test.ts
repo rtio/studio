@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	entriesToRenderItems,
-	entriesToTranscriptItems,
-	getProgressMessage,
-	getSender,
-} from '@/features/chats/session-view/conversation/transcript-items';
-import {
 	agentQuestionEntry,
 	askUserAnswerEntry,
 	assistantTextEntry,
@@ -14,8 +8,14 @@ import {
 	toolResultEntry,
 	turnClosedEntry,
 	visualAnnotationsEntry,
-} from '@/test/session-entries';
-import type { SessionEntry } from '@/data/core';
+} from '@studio/agent/protocol/transcript/tests/session-entries';
+import {
+	entriesToRenderItems,
+	entriesToTranscriptItems,
+	getProgressMessage,
+	getSender,
+} from '@studio/agent/protocol/transcript/transcript-items';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 describe( 'entriesToRenderItems', () => {
 	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {

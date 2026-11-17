@@ -1,3 +1,4 @@
+import { getToolDisplay } from '@studio/agent/protocol/transcript/tool-display';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleAlertIcon } from 'lucide-react';
@@ -10,12 +11,11 @@ import {
 	type ReactNode,
 	type ComponentProps,
 } from 'react';
-import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
 import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@/lib/icons';
 import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
-import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
 import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
+import type { TurnActivity } from '@studio/agent/protocol/transcript/transcript-items';
 
 function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 	return (

@@ -12,6 +12,11 @@ import {
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/agent/protocol/errors';
+import {
+	entriesToTranscriptItems,
+	getProgressMessage,
+	getSender,
+} from '@studio/agent/protocol/transcript/transcript-items';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
@@ -22,15 +27,10 @@ import { AgentQuestionBatch } from '@/features/chats/session-view/conversation/a
 import { canJoinBubbles } from '@/features/chats/session-view/conversation/joined';
 import { AssistantText, UserTurn } from '@/features/chats/session-view/conversation/message';
 import { ToolUseRow, TurnActivityLine } from '@/features/chats/session-view/conversation/trace';
-import {
-	entriesToTranscriptItems,
-	getProgressMessage,
-	getSender,
-} from '@/features/chats/session-view/conversation/transcript-items';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
-import type { TranscriptItem } from '@/features/chats/session-view/conversation/transcript-items';
+import type { TranscriptItem } from '@studio/agent/protocol/transcript/transcript-items';
 
 const ChatArtifact = memo( function ChatArtifact( {
 	widgets,

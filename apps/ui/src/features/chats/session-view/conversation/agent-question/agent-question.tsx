@@ -20,7 +20,7 @@ import {
 	QuestionnaireTitle,
 } from '@/lib/ui';
 import styles from './style.module.css';
-import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
+import type { AgentQuestionRenderItem } from '@studio/agent/protocol/transcript/transcript-items';
 
 function getAnswerLetter(
 	options: AgentQuestionRenderItem[ 'options' ],

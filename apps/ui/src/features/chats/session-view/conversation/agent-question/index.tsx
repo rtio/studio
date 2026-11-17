@@ -6,7 +6,7 @@ import { scrollElementIntoViewIfNeeded } from '@/features/chats/session-view/con
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
 import { useReducedMotion } from '@/lib/hooks';
 import styles from './style.module.css';
-import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
+import type { AgentQuestionRenderItem } from '@studio/agent/protocol/transcript/transcript-items';
 
 export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 	questions,

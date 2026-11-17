@@ -11,7 +11,7 @@ import {
 	type StudioCustomEntry,
 } from '@studio/agent/protocol/sessions/entry-types';
 import { getToolResultDiff, type NormalizedToolResult } from '@studio/agent/protocol/tools';
-import { isStreamingReply } from '@/data/agent-runs/streaming-reply';
+import { isStreamingReply } from '@studio/agent/protocol/transcript/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
