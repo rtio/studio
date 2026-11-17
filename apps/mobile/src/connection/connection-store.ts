@@ -14,8 +14,12 @@ export interface Connection {
 	expiresAt: number;
 }
 
-// Why the phone went back to the Pair screen by itself.
-export type ConnectionNotice = 'unpaired' | 'expired';
+// Something the Pair screen must say about how the last pairing ended.
+// - `unpaired`: the computer removed this phone.
+// - `expired`: the device token passed its expiry.
+// - `not-revoked`: the person forgot the computer while it did not answer, so
+//   the computer still lists this phone.
+export type ConnectionNotice = 'unpaired' | 'expired' | 'not-revoked';
 
 export type ConnectionState =
 	| { status: 'loading' }

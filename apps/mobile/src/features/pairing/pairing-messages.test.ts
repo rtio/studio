@@ -25,9 +25,11 @@ describe( 'pairingFailureMessage', () => {
 } );
 
 describe( 'connectionNoticeMessage', () => {
-	it( 'says why the phone is not paired any more', () => {
-		expect( connectionNoticeMessage( 'unpaired' ) ).not.toBe(
-			connectionNoticeMessage( 'expired' )
+	it( 'has a different message for every way a pairing ends', () => {
+		const messages = ( [ 'unpaired', 'expired', 'not-revoked' ] as const ).map(
+			connectionNoticeMessage
 		);
+
+		expect( new Set( messages ).size ).toBe( 3 );
 	} );
 } );

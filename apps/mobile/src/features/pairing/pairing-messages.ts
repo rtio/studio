@@ -28,12 +28,16 @@ export function pairingFailureMessage( reason: PairingFailure ): string {
 	}
 }
 
-// Why the app came back to the Pair screen by itself.
+// What the Pair screen says about how the last pairing ended.
 export function connectionNoticeMessage( notice: ConnectionNotice ): string {
 	switch ( notice ) {
 		case 'unpaired':
 			return __( 'Your computer no longer lists this phone. Pair again.' );
 		case 'expired':
 			return __( 'The pairing has expired. Pair again.' );
+		case 'not-revoked':
+			return __(
+				'This phone forgot the computer, but the computer did not answer and still lists this phone. Remove it there with “studio remote devices revoke”.'
+			);
 	}
 }

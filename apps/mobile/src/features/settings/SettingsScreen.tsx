@@ -32,15 +32,7 @@ export function SettingsScreen() {
 
 	async function forget( paired: Connection ) {
 		setForgetting( true );
-		const { revoked } = await forgetThisComputer( paired );
-		if ( ! revoked ) {
-			Alert.alert(
-				__( 'Your computer did not answer' ),
-				__(
-					'This phone forgot the computer, but the computer still lists this phone. Remove it there with “studio remote devices revoke”.'
-				)
-			);
-		}
+		await forgetThisComputer( paired );
 	}
 
 	function confirmForget( paired: Connection ) {

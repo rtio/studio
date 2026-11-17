@@ -22,11 +22,9 @@ export async function pairThisPhone( link: PairingLink ): Promise< void > {
 }
 
 // Asks the computer to remove this phone, then forgets the computer. The phone
-// forgets it even when the computer does not answer. `revoked` says whether the
-// computer removed the phone.
-export async function forgetThisComputer(
-	connection: Connection
-): Promise< { revoked: boolean } > {
+// forgets it even when the computer does not answer. In that case the Pair
+// screen says that the computer still lists this phone.
+export async function forgetThisComputer( connection: Connection ): Promise< void > {
 	let revoked = true;
 	try {
 		await createConnectionClient( connection ).delete( '/api/remote/devices/current' );
@@ -34,7 +32,6 @@ export async function forgetThisComputer(
 		// A 401 means the computer already removed this phone.
 		revoked = error instanceof UnauthorizedError;
 	}
-	await connectionStore.clear();
+	await connectionStore.clear( revoked ? null : 'not-revoked' );
 	queryClient.clear();
-	return { revoked };
 }
