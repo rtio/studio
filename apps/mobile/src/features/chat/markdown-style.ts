@@ -32,6 +32,14 @@ export function markdownStyle( colors: ThemeColors, monoFont: string ): Markdown
 			borderWidth: 3,
 			gapWidth: space[ 3 ],
 			backgroundColor: colors.background,
+			// GitHub alerts (`> [!NOTE]`, `> [!WARNING]`, ...).
+			admonitions: {
+				note: { color: colors.accentText, backgroundColor: colors.accentSubtle },
+				tip: { color: colors.success, backgroundColor: colors.muted },
+				important: { color: colors.accentText, backgroundColor: colors.accentSubtle },
+				warning: { color: colors.warning, backgroundColor: colors.muted },
+				caution: { color: colors.destructive, backgroundColor: colors.muted },
+			},
 		},
 		list: {
 			...text,

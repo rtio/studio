@@ -50,6 +50,12 @@ describe( 'markdownStyle', () => {
 					expect( themeColors.has( setting as string ), key ).toBe( true );
 				}
 			}
+			// GitHub alerts (`> [!NOTE]`) draw in their own colors otherwise.
+			for ( const kind of [ 'note', 'tip', 'important', 'warning', 'caution' ] as const ) {
+				const alert = style.blockquote?.admonitions?.[ kind ];
+				expect( themeColors.has( alert?.color as string ), kind ).toBe( true );
+				expect( themeColors.has( alert?.backgroundColor as string ), kind ).toBe( true );
+			}
 		}
 	);
 } );
