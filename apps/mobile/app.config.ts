@@ -22,6 +22,7 @@ const config: ExpoConfig = {
 	},
 	plugins: [
 		'expo-router',
+		// The paired computer serves plain HTTP at a LAN address, so Android must allow cleartext.
 		[ 'expo-build-properties', { android: { usesCleartextTraffic: true } } ],
 		// The app has no biometric gate, so it asks for no Face ID permission.
 		[ 'expo-secure-store', { faceIDPermission: false } ],
