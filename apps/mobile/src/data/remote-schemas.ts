@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import type { entriesToTranscriptItems } from '@studio/agent/protocol/transcript/transcript-items';
+
+// A saved entry of a chat, as the shared transcript code takes it. Read from
+// that code, so the phone depends on the agent package and not on the agent
+// library behind it.
+export type SessionEntry = Parameters< typeof entriesToTranscriptItems >[ 0 ][ number ];
 
 // The shapes remote mode sends, cut down to what the phone uses. zod drops
 // every other key, so the computer's file paths in a chat summary (`filePath`,
