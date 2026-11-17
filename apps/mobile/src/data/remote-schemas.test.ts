@@ -148,13 +148,17 @@ describe( 'parseStreamMessage', () => {
 
 		expect( parseStreamMessage( data ) ).toEqual( {
 			channel: 'agent',
-			payload: { runId: 'run-1', sessionId: 'chat-1', event: { type: 'run.started' } },
+			payload: {
+				runId: 'run-1',
+				sessionId: 'chat-1',
+				event: { type: 'run.started', timestamp: '2026-11-17T10:00:01.000Z' },
+			},
 		} );
 	} );
 
-	it( 'keeps the type of the event that a message event wraps', () => {
+	it( 'keeps the event that a message event wraps, and the text of an error', () => {
 		const wrapped =
-			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"timestamp":"2026-11-17T10:00:02.000Z","type":"message","message":{"type":"message_start"}}}}';
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"timestamp":"2026-11-17T10:00:02.000Z","type":"message","message":{"type":"message_end","message":{"role":"assistant","content":[]}}}}}';
 		const text =
 			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"type":"error","message":"Out of credits"}}}';
 
@@ -163,11 +167,15 @@ describe( 'parseStreamMessage', () => {
 			payload: {
 				runId: 'run-1',
 				sessionId: 'chat-1',
-				event: { type: 'message', detail: 'message_start' },
+				event: {
+					type: 'message',
+					timestamp: '2026-11-17T10:00:02.000Z',
+					inner: { type: 'message_end', message: { role: 'assistant', content: [] } },
+				},
 			},
 		} );
 		expect( parseStreamMessage( text ) ).toMatchObject( {
-			payload: { event: { type: 'error', detail: undefined } },
+			payload: { event: { type: 'error', inner: undefined, text: 'Out of credits' } },
 		} );
 	} );
 

@@ -106,22 +106,31 @@ export function parseChatEntries( payload: unknown ): SessionEntry[] | null {
 	return parsed.success ? parsed.data.entries.filter( isReadableEntry ) : null;
 }
 
-// An agent event. `message` events wrap an event of the agent library, and
-// `detail` is the type of that inner event (`message_start`, `turn_start`,
-// `tool_execution_end`, ...). For `info` and `error`, `message` is plain text
-// and there is no detail.
+// An agent event. `message` events wrap an event of the agent library
+// (`message_update`, `message_end`, `tool_execution_end`, ...): `inner` is that
+// event's type and the message it carries. For `info` and `error`, `message`
+// is plain text, kept as `text`.
 const agentEventSchema = z
-	.object( { type: z.string(), message: z.unknown().optional() } )
+	.object( {
+		type: z.string(),
+		timestamp: z.string().optional(),
+		message: z.unknown().optional(),
+	} )
 	.transform( ( event ) => {
-		const inner = event.message;
-		const detail =
-			typeof inner === 'object' &&
-			inner !== null &&
-			'type' in inner &&
-			typeof inner.type === 'string'
-				? inner.type
+		const wrapped = event.message;
+		const inner =
+			typeof wrapped === 'object' &&
+			wrapped !== null &&
+			'type' in wrapped &&
+			typeof wrapped.type === 'string'
+				? { type: wrapped.type, message: 'message' in wrapped ? wrapped.message : undefined }
 				: undefined;
-		return { type: event.type, detail };
+		return {
+			type: event.type,
+			timestamp: event.timestamp,
+			inner,
+			text: typeof wrapped === 'string' ? wrapped : undefined,
+		};
 	} );
 
 const streamMessageSchema = z.discriminatedUnion( 'channel', [

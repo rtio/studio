@@ -5,10 +5,11 @@ import { verifyComputer } from '../connection/verify-computer';
 import { createValueStore } from '../lib/value-store';
 import { withUpdatedSite } from './chat-list';
 import { startLiveSession } from './live-session';
+import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
-import { sessionsKey, sitesKey } from './query-keys';
+import { chatKey, sessionsKey, sitesKey } from './query-keys';
 import { parseActiveRuns } from './remote-schemas';
-import { resetSelection, selectedSiteId, selectSite } from './selection';
+import { resetSelection, selectedChatId, selectedSiteId, selectSite } from './selection';
 import type { LiveStatus } from './live-status';
 import type { Site } from './remote-schemas';
 import type { ActivityMap } from './run-activity';
@@ -17,7 +18,27 @@ import type { Connection } from '../connection/connection-store';
 export const liveStatusStore = createValueStore< LiveStatus >( 'off' );
 export const activityStore = createValueStore< ActivityMap >( {} );
 
-let live: { deviceId: string; reconnect: () => void; stop: () => void } | null = null;
+let live: {
+	connection: Connection;
+	reconnect: () => void;
+	stop: () => void;
+} | null = null;
+
+// What the stream adds to the open chat. A read it asks for goes to the
+// paired computer, and only while the link is live, like every request with
+// the token: the chat's query is disabled otherwise (data/use-chat.ts).
+export const openChat = createOpenChat( ( chatId ) => {
+	if ( ! live ) {
+		return;
+	}
+	const queryKey = chatKey( live.connection, chatId );
+	// A read on its way may have started before what this read is for. While
+	// the chat has no data yet, the cache would join that read instead of
+	// starting a new one, so stop it first.
+	void queryClient
+		.cancelQueries( { queryKey } )
+		.then( () => queryClient.invalidateQueries( { queryKey } ) );
+} );
 
 // Gives the live session (data/live-session.ts) its parts on a phone: the
 // requests, the query cache and the app's state.
@@ -34,6 +55,7 @@ function start( connection: Connection ) {
 		onListsStale: () => {
 			void queryClient.invalidateQueries( { queryKey: sitesKey( connection ) } );
 			void queryClient.invalidateQueries( { queryKey: sessionsKey( connection ) } );
+			openChat.resync();
 		},
 		onChatsStale: () => {
 			void queryClient.invalidateQueries( { queryKey: sessionsKey( connection ) } );
@@ -55,6 +77,8 @@ function start( connection: Connection ) {
 			}
 			void queryClient.invalidateQueries( { queryKey: sitesKey( connection ) } );
 		},
+		openChatId: selectedChatId,
+		onChatEvent: openChat.handle,
 	} );
 
 	// The system can freeze the app in the background and drop the stream
@@ -71,7 +95,7 @@ function start( connection: Connection ) {
 	} );
 
 	return {
-		deviceId: connection.deviceId,
+		connection,
 		reconnect: session.reconnect,
 		stop: () => {
 			session.stop();
@@ -83,12 +107,13 @@ function start( connection: Connection ) {
 // Starts, replaces or stops the live connection so it matches the paired
 // computer. Call it whenever the connection changes.
 export function syncLiveConnection( connection: Connection | null ): void {
-	if ( ( live?.deviceId ?? null ) === ( connection?.deviceId ?? null ) ) {
+	if ( ( live?.connection.deviceId ?? null ) === ( connection?.deviceId ?? null ) ) {
 		return;
 	}
 	live?.stop();
 	live = null;
 	activityStore.set( {} );
+	openChat.clear();
 	resetSelection();
 	if ( ! connection ) {
 		liveStatusStore.set( 'off' );

@@ -3,6 +3,7 @@ import { startEventStream } from '../connection/event-stream';
 import { WrongComputerError } from '../connection/verify-computer';
 import { parseStreamMessage } from './remote-schemas';
 import { activityFromActiveRuns, applyAgentEvent } from './run-activity';
+import type { ChatEvent } from './chat-reply';
 import type { LiveStatus } from './live-status';
 import type { ActiveRun, Site } from './remote-schemas';
 import type { ActivityMap, AgentEventInfo } from './run-activity';
@@ -41,6 +42,10 @@ export interface LiveSessionParts {
 	onChatsStale: () => void;
 	onSiteUpdated: ( site: Site ) => void;
 	onSiteAddedOrRemoved: ( event: 'site-created' | 'site-deleted', siteId: string ) => void;
+	// The chat that is open on the phone, if any. Its events go to
+	// `onChatEvent`; the events of every other chat stop at the activity.
+	openChatId: () => string | null;
+	onChatEvent: ( chatId: string, event: ChatEvent ) => void;
 }
 
 export interface LiveSession {
@@ -92,11 +97,20 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 		}
 		if ( message.channel === 'agent' ) {
 			const { sessionId, runId, event } = message.payload;
-			const info = { sessionId, runId, type: event.type, detail: event.detail };
+			const info = { sessionId, runId, type: event.type, detail: event.inner?.type };
 			duringReload?.push( info );
 			activity.set( applyAgentEvent( activity.get(), info ) );
 			if ( event.type === 'run.started' || event.type === 'run.exited' ) {
 				parts.onChatsStale();
+			}
+			if ( sessionId === parts.openChatId() ) {
+				parts.onChatEvent( sessionId, {
+					runId,
+					type: event.type,
+					timestamp: event.timestamp,
+					inner: event.inner,
+					text: event.text,
+				} );
 			}
 			return;
 		}

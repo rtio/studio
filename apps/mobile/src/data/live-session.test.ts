@@ -65,6 +65,8 @@ function setup( whoAnswersFirst: 'paired' | 'other' | 'nobody' = 'paired' ) {
 		onChatsStale: vi.fn(),
 		onSiteUpdated: vi.fn(),
 		onSiteAddedOrRemoved: vi.fn(),
+		openChatId: vi.fn( (): string | null => 'chat-1' ),
+		onChatEvent: vi.fn(),
 	};
 
 	return {
@@ -208,6 +210,40 @@ describe( 'startLiveSession', () => {
 		expect( parts.onChatsStale ).toHaveBeenCalledTimes( 2 );
 		expect( parts.onSiteUpdated ).toHaveBeenCalledWith( site );
 		expect( parts.onSiteAddedOrRemoved ).toHaveBeenCalledWith( 'site-deleted', 's2' );
+	} );
+
+	it( 'passes the events of the open chat on, and only those', async () => {
+		const { parts, streams } = setup();
+		await settle();
+		const { stream } = streams[ 0 ];
+		stream.onOpen();
+
+		stream.onData( agentEvent( 'chat-2', 'run-2', 'run.started' ) );
+		stream.onData(
+			`data: ${ JSON.stringify( {
+				channel: 'agent',
+				payload: {
+					runId: 'run-1',
+					sessionId: 'chat-1',
+					event: {
+						type: 'message',
+						timestamp: '2026-11-17T10:00:02.000Z',
+						message: { type: 'message_end', message: { role: 'user' } },
+					},
+				},
+			} ) }\n\n`
+		);
+		parts.openChatId.mockReturnValue( null );
+		stream.onData( agentEvent( 'chat-1', 'run-1', 'run.exited' ) );
+
+		expect( parts.onChatEvent ).toHaveBeenCalledTimes( 1 );
+		expect( parts.onChatEvent ).toHaveBeenCalledWith( 'chat-1', {
+			runId: 'run-1',
+			type: 'message',
+			timestamp: '2026-11-17T10:00:02.000Z',
+			inner: { type: 'message_end', message: { role: 'user' } },
+			text: undefined,
+		} );
 	} );
 
 	it( 'checks every 15 seconds who answers, without the token, and reconnects when nobody does', async () => {
