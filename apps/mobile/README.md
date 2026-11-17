@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** this is a spike. Today the app holds one spike screen that proves the stack. iOS builds and runs on the iOS Simulator. Android has not been built or run yet.
+**Status:** this is a spike. Today the app holds one spike screen that proves the stack. It builds and runs on the iOS Simulator and on an Android emulator. It has not run on a real phone yet.
 
 ## What it needs
 
@@ -41,11 +41,22 @@ For a booted Android emulator, the script is:
 npm run android
 ```
 
+The emulator cannot reach the computer's 127.0.0.1 by itself. Forward the dev server's port, then open the app on it:
+
+```bash
+adb reverse tcp:8097 tcp:8097
+```
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "exp+studio-mobile://?__expo_url=http%3A%2F%2F127.0.0.1%3A8097" com.automattic.studio.mobile
+```
+
 `ios/` and `android/` are generated and not committed.
 
 ## Things to know
 
 - With Xcode 27, `npm run ios` (`expo run:ios`) ends with `CommandError: Simulator app did not open fast enough` after a successful build and install. The build worked if the log says `Build Succeeded`. Open the app from the simulator's home screen, or with `xcrun simctl openurl booted "exp+studio-mobile://?__expo_url=http%3A%2F%2F127.0.0.1%3A8097"`.
+- `npm run android` ends by opening the app on port 8081 at the computer's network address, where this app has no dev server. The app then shows a connection error. Open it with the `adb` commands above.
 - Restart the dev server after installing a package. It can miss new files otherwise.
 - Every `npm install` in this repository uses `--ignore-scripts`, because the root `postinstall` downloads WordPress and PHP files. After every install, run `node ./scripts/apply-available-patches.mjs apps/studio/patches` from the repo root so Studio's own patches stay applied.
 - After a change to `app.config.ts`, or to the `enriched-markdown` block in `package.json`, run `npx expo prebuild --clean` from `apps/mobile` before building. It regenerates the native projects.
