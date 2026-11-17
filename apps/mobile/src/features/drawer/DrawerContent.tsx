@@ -68,7 +68,7 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 							key={ site.id }
 							label={ site.name }
 							selected={ site.id === selectedSiteId }
-							leading={ <StatusDot color={ site.running ? 'statusRunning' : 'border' } /> }
+							leading={ <StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } /> }
 							onPress={ () => selectSite( site.id ) }
 						/>
 					) ) }

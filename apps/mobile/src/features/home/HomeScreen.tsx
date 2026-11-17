@@ -81,7 +81,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 						style={ styles.capsulePress }
 					>
 						<FloatingSurface style={ styles.capsule }>
-							{ site && <StatusDot color={ site.running ? 'statusRunning' : 'border' } /> }
+							{ site && <StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } /> }
 							<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
 								{ siteName }
 							</Text>
