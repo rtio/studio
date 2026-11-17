@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** the foundation. The app pairs with `studio remote`, remembers the computer, shows whether it answers, and can forget it. Sites and chats are not built yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
+**Status:** pairing and the drawer. The app pairs with `studio remote`, lists the computer's sites and chats, and keeps them live: site status, a spinner on a chat that is working, a dot on a chat that waits for an answer. The conversation itself is not built yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
 
 ## What it needs
 
@@ -70,6 +70,27 @@ It prints a QR code, an address and a pairing code. In the app, type the address
 An Android emulator needs `adb reverse tcp:8098 tcp:8098` first.
 
 Remote mode writes to Studio's config folder. To keep a development run away from your real Studio, set `DEV_CONFIG_DIR` and `STUDIO_PROCESS_MANAGER_HOME` to scratch folders before you start it.
+
+## Live updates
+
+While the app is paired it keeps one event stream open to the computer (`GET /api/events`). The computer sends no heartbeat and cannot replay events, so the app:
+
+- reloads the sites, the chats and the active runs each time the stream opens;
+- asks `GET /api/health` every 15 seconds while the stream is open, and reconnects when that fails;
+- reconnects when it comes back to the front;
+- waits 1 second before a new try, then double each time, up to 30 seconds.
+
+Before each try the app reads `/.well-known/studio/remote` without its token and compares the instance id with the paired one. It sends the token only when they match.
+
+## Work without Studio
+
+A spinner or a question dot in the drawer needs an agent run. For work on the app there is a stand-in server with made-up sites and chats and a loop of events:
+
+```bash
+node scripts/fake-remote.mjs
+```
+
+It listens on `http://127.0.0.1:8099`. Pair with that address and the code `FAKE-FAKE-FAKE`. An Android emulator needs `adb reverse tcp:8099 tcp:8099` first.
 
 ## Colors
 
