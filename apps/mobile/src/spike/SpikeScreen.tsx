@@ -1,3 +1,4 @@
+import { ArrowUp, Menu, SquarePen } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -5,6 +6,7 @@ import { usePalette } from '../theme/spike-palette';
 import { FloatingSurface } from '../ui/FloatingSurface';
 import { useSurfaceMode } from '../ui/use-surface-mode';
 import { MarkdownSample } from './MarkdownSample';
+import { NativeModulesCheck } from './NativeModulesCheck';
 import { SpikeIconButton } from './SpikeIconButton';
 
 const STRIPES = [ '#3858e9', '#e26f56', '#00a32a', '#dba617', '#9a69c7', '#1e1e1e' ];
@@ -28,18 +30,25 @@ export function SpikeScreen() {
 				<Text style={ { color: palette.muted } }>surface: { surfaceMode }</Text>
 				<Text style={ { color: palette.muted } }>taps: { taps }</Text>
 				<MarkdownSample />
+				<NativeModulesCheck />
 				{ [ ...STRIPES, ...STRIPES ].map( ( color, index ) => (
 					<View key={ index } style={ [ styles.stripe, { backgroundColor: color } ] } />
 				) ) }
 			</ScrollView>
 
 			<View style={ [ styles.header, { top: insets.top + 8 } ] }>
-				<SpikeIconButton glyph="≡" onPress={ countTap } />
+				<SpikeIconButton
+					icon={ <Menu color={ palette.foreground } size={ 20 } /> }
+					onPress={ countTap }
+				/>
 				<FloatingSurface style={ styles.capsule }>
 					<View style={ styles.dot } />
 					<Text style={ [ styles.capsuleLabel, { color: palette.foreground } ] }>My site</Text>
 				</FloatingSurface>
-				<SpikeIconButton glyph="+" onPress={ countTap } />
+				<SpikeIconButton
+					icon={ <SquarePen color={ palette.foreground } size={ 20 } /> }
+					onPress={ countTap }
+				/>
 			</View>
 
 			<View style={ [ styles.composer, { bottom: insets.bottom + 8 } ] }>
@@ -47,7 +56,9 @@ export function SpikeScreen() {
 					<Text style={ [ styles.composerPlaceholder, { color: palette.muted } ] }>
 						Ask Studio Code
 					</Text>
-					<View style={ [ styles.send, { backgroundColor: palette.foreground } ] } />
+					<View style={ [ styles.send, { backgroundColor: palette.foreground } ] }>
+						<ArrowUp color={ palette.background } size={ 20 } />
+					</View>
 				</FloatingSurface>
 			</View>
 		</View>
@@ -85,5 +96,5 @@ const styles = StyleSheet.create( {
 		alignItems: 'center',
 	},
 	composerPlaceholder: { flex: 1, fontSize: 14 },
-	send: { width: 36, height: 36, borderRadius: 18 },
+	send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 } );

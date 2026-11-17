@@ -23,6 +23,14 @@ const config: ExpoConfig = {
 	plugins: [
 		'expo-router',
 		[ 'expo-build-properties', { android: { usesCleartextTraffic: true } } ],
+		'expo-secure-store',
+		[
+			'expo-camera',
+			{
+				cameraPermission: 'Studio uses the camera to scan the pairing code shown by your computer.',
+				recordAudioAndroid: false,
+			},
+		],
 	],
 };
 

@@ -1,19 +1,20 @@
 import { Host } from '@expo/ui';
-import { FilledTonalIconButton, Text } from '@expo/ui/jetpack-compose';
+import { FilledTonalIconButton, RNHostView } from '@expo/ui/jetpack-compose';
 import { STUDIO_SEED_COLOR } from '../theme/seed';
+import type { ReactElement } from 'react';
 
 interface Props {
-	glyph: string;
+	icon: ReactElement;
 	onPress: () => void;
 }
 
-// A real Material 3 icon button, drawn by Jetpack Compose. Host themes it with the
-// palette built from Studio's blue, in the system's light or dark mode.
-export function SpikeIconButton( { glyph, onPress }: Props ) {
+// A real Material 3 icon button, drawn by Jetpack Compose. RNHostView puts the
+// React Native icon inside the Compose button.
+export function SpikeIconButton( { icon, onPress }: Props ) {
 	return (
 		<Host matchContents seedColor={ STUDIO_SEED_COLOR }>
 			<FilledTonalIconButton onClick={ onPress }>
-				<Text style={ { fontSize: 20 } }>{ glyph }</Text>
+				<RNHostView matchContents>{ icon }</RNHostView>
 			</FilledTonalIconButton>
 		</Host>
 	);

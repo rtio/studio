@@ -1,25 +1,20 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { usePalette } from '../theme/spike-palette';
+import { Pressable, StyleSheet } from 'react-native';
 import { FloatingSurface } from '../ui/FloatingSurface';
+import type { ReactElement } from 'react';
 
 interface Props {
-	glyph: string;
+	icon: ReactElement;
 	onPress: () => void;
 }
 
-export function SpikeIconButton( { glyph, onPress }: Props ) {
-	const palette = usePalette();
-
+export function SpikeIconButton( { icon, onPress }: Props ) {
 	return (
 		<Pressable onPress={ onPress }>
-			<FloatingSurface style={ styles.circle }>
-				<Text style={ [ styles.glyph, { color: palette.foreground } ] }>{ glyph }</Text>
-			</FloatingSurface>
+			<FloatingSurface style={ styles.circle }>{ icon }</FloatingSurface>
 		</Pressable>
 	);
 }
 
 const styles = StyleSheet.create( {
 	circle: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-	glyph: { fontSize: 20 },
 } );
