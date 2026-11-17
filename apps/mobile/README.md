@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** this is a spike. Today the app holds one spike screen that proves the stack. It builds and runs on the iOS Simulator and on an Android emulator. It has not run on a real phone yet.
+**Status:** the foundation. The app pairs with `studio remote`, remembers the computer, shows whether it answers, and can forget it. Sites and chats are not built yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
 
 ## What it needs
 
@@ -53,6 +53,34 @@ adb shell am start -a android.intent.action.VIEW -d "exp+studio-mobile://?__expo
 
 `ios/` and `android/` are generated and not committed.
 
+## Pair it with Studio
+
+On the computer, from the repo root, build the CLI and start remote mode on loopback:
+
+```bash
+npm run cli:build
+```
+
+```bash
+node apps/cli/dist/cli/main.mjs remote --host 127.0.0.1 --port 8098
+```
+
+It prints a QR code, an address and a pairing code. In the app, type the address and the code, or scan the QR code with a real phone. On a simulator you can open the pairing link instead: `studio-remote://pair?url=<address>&code=<code>&id=<instance id>`. The instance id is in `http://127.0.0.1:8098/.well-known/studio/remote`.
+
+An Android emulator needs `adb reverse tcp:8098 tcp:8098` first.
+
+Remote mode writes to Studio's config folder. To keep a development run away from your real Studio, set `DEV_CONFIG_DIR` and `STUDIO_PROCESS_MANAGER_HOME` to scratch folders before you start it.
+
+## Colors
+
+`src/theme/tokens.generated.ts` holds Studio's colors as hex values. A script reads them from `apps/ui/src/lib/theme/tokens.css` with a headless browser, because React Native cannot evaluate the CSS color functions Studio uses. After `tokens.css` changes, run this from `apps/mobile`:
+
+```bash
+npm run tokens
+```
+
+A unit test fails when the generated file is older than `tokens.css`.
+
 ## Things to know
 
 - With Xcode 27, `npm run ios` (`expo run:ios`) ends with `CommandError: Simulator app did not open fast enough` after a successful build and install. The build worked if the log says `Build Succeeded`. Open the app from the simulator's home screen, or with `xcrun simctl openurl booted "exp+studio-mobile://?__expo_url=http%3A%2F%2F127.0.0.1%3A8097"`.
@@ -84,6 +112,8 @@ npm test -- apps/mobile
 The layout is the same on iOS and Android. What the controls are made of is not. iOS uses Liquid Glass. Android uses Material 3, with a palette built from Studio's blue (`src/theme/seed.ts`).
 
 A component that differs has two files: `Name.tsx` is the iOS version and the type contract, and `Name.android.tsx` is the Android version with the same exports. Code that imports `@expo/ui/jetpack-compose` lives only in `.android.tsx` files. Platform files do not go in `src/app/`.
+
+Every Compose `Host` takes `seedColor={ STUDIO_SEED_COLOR }` and `colorScheme={ scheme }` from `useTheme()`. Without `colorScheme` the control follows the system and ignores the theme chosen in Settings.
 
 ## Why React is pinned in the root `package.json`
 
