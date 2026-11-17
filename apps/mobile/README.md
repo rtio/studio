@@ -76,11 +76,12 @@ Remote mode writes to Studio's config folder. To keep a development run away fro
 While the app is paired it keeps one event stream open to the computer (`GET /api/events`). The computer sends no heartbeat and cannot replay events, so the app:
 
 - reloads the sites, the chats and the active runs each time the stream opens;
-- asks `GET /api/health` every 15 seconds while the stream is open, and reconnects when that fails;
-- reconnects when it comes back to the front;
-- waits 1 second before a new try, then double each time, up to 30 seconds.
+- asks every 15 seconds, without its token, who answers at the paired address, and reconnects when nobody or another computer does;
+- opens the stream again when no data arrived for 5 minutes, because a stream on a dead network route is silent;
+- reconnects when it comes back from the background;
+- waits 1 second before a new try, then double each time, up to 30 seconds, and drops a try that has not opened after 20 seconds.
 
-Before each try the app reads `/.well-known/studio/remote` without its token and compares the instance id with the paired one. It sends the token only when they match.
+Before each try the app reads `/.well-known/studio/remote` without its token and compares the instance id with the paired one. It sends the token only when they match, and it reads the sites and chats only while the link is live. This keeps the token from another device that got the paired address. It is not a defense against an attacker: the id is not a secret and the connection is plain HTTP.
 
 ## Work without Studio
 
