@@ -63,4 +63,22 @@ describe( 'createSseParser', () => {
 		parser.push( 'data:1\n\n' );
 		expect( events ).toEqual( [ { event: 'message', data: '1' } ] );
 	} );
+
+	it( 'treats an empty event field as a message', () => {
+		const { events, parser } = collect();
+		parser.push( 'event:\ndata: 1\n\n' );
+		expect( events ).toEqual( [ { event: 'message', data: '1' } ] );
+	} );
+
+	it( 'resets the event name between blocks', () => {
+		const { events, parser } = collect();
+		parser.push( 'event: tick\ndata: 1\n\ndata: 2\n\n' );
+		expect( events.map( ( event ) => event.event ) ).toEqual( [ 'tick', 'message' ] );
+	} );
+
+	it( 'ignores the id and retry fields', () => {
+		const { events, parser } = collect();
+		parser.push( 'id: 7\nretry: 1000\ndata: 1\n\n' );
+		expect( events ).toEqual( [ { event: 'message', data: '1' } ] );
+	} );
 } );

@@ -5,6 +5,8 @@ export interface SseEvent {
 	data: string;
 }
 
+// Use one parser per connection. A partial block left by a dropped connection
+// would be joined to the start of the next stream.
 export interface SseParser {
 	// Feed decoded text as it arrives. Complete blocks are emitted at once.
 	push( chunk: string ): void;
@@ -25,7 +27,7 @@ function parseBlock( block: string ): SseEvent | null {
 			value = value.slice( 1 );
 		}
 		if ( field === 'event' ) {
-			event = value;
+			event = value || 'message';
 		} else if ( field === 'data' ) {
 			data.push( value );
 		}
