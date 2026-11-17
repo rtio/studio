@@ -128,6 +128,7 @@ export default defineConfig(
 		'apps/mobile/ios/',
 		'apps/mobile/android/',
 		'apps/mobile/.expo/',
+		'apps/mobile/dist/',
 		'dist/',
 		'out/',
 		'vendor/',
