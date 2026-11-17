@@ -16,14 +16,15 @@ import { FloatingSurface } from '../../ui/FloatingSurface';
 import { IconButton } from '../../ui/IconButton';
 import { StatusDot } from '../../ui/StatusDot';
 import { Text } from '../../ui/Text';
+import { TopBarBackdrop } from '../../ui/TopBarBackdrop';
+import { ChatView } from '../chat/ChatView';
 import { AppDrawer } from '../drawer/AppDrawer';
 import { DrawerContent } from '../drawer/DrawerContent';
 import { liveStatusColor, liveStatusText } from '../live-status-text';
 import type { Connection } from '../../connection/connection-store';
 
-// The screen a paired phone opens on. It has the drawer with sites and chats,
-// and the header that names the current site. The conversation itself takes
-// the middle of this screen in a later part.
+// The screen a paired phone opens on: the open chat, the header that names the
+// current site over it, and the drawer with sites and chats.
 export function HomeScreen() {
 	const state = useConnectionState();
 	if ( state.status !== 'ready' || ! state.connection ) {
@@ -37,6 +38,8 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
 	const [ drawerOpen, setDrawerOpen ] = useState( false );
+	// The height of the header and the banner, which float over the chat.
+	const [ topHeight, setTopHeight ] = useState( 0 );
 	const openDrawer = useCallback( () => setDrawerOpen( true ), [] );
 	const closeDrawer = useCallback( () => setDrawerOpen( false ), [] );
 	const sites = useSites( connection );
@@ -68,69 +71,74 @@ function PairedHome( { connection }: { connection: Connection } ) {
 				/>
 			}
 		>
-			<View
-				style={ [ styles.screen, { backgroundColor: colors.background, paddingTop: insets.top } ] }
-			>
+			<View style={ [ styles.screen, { backgroundColor: colors.background } ] }>
 				<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
-				<View style={ styles.header }>
-					<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel={ __( 'Choose a site' ) }
-						onPress={ openDrawer }
-						style={ styles.capsulePress }
-					>
-						<FloatingSurface style={ styles.capsule }>
-							{ site && <StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } /> }
-							<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
-								{ siteName }
-							</Text>
-							{ chat?.live && (
-								<Text variant="caption" color="warning">
-									{ __( 'Live' ) }
-								</Text>
-							) }
-						</FloatingSurface>
-					</Pressable>
-					<View style={ styles.headerEnd } />
-				</View>
-
-				{ status !== 'live' && (
-					<View style={ styles.banner }>
-						<View style={ styles.bannerLine }>
-							<StatusDot color={ liveStatusColor( status ) } />
-							<Text variant="bodyStrong" style={ styles.bannerText }>
-								{ liveStatusText( status, connection.label ) }
-							</Text>
-						</View>
-						{ status === 'reconnecting' && (
-							<Button variant="secondary" label={ __( 'Try again' ) } onPress={ reconnectNow } />
-						) }
-						{ status === 'wrong-computer' && (
-							<Text color="mutedForeground">
-								{ __(
-									'This phone sends nothing there. If your computer has a new address, forget this computer in Settings and pair again.'
-								) }
-							</Text>
-						) }
+				{ chat ? (
+					<ChatView
+						key={ chat.id }
+						connection={ connection }
+						chatId={ chat.id }
+						topInset={ topHeight }
+						bottomInset={ insets.bottom + space[ 4 ] }
+					/>
+				) : (
+					<View style={ [ styles.body, { paddingTop: topHeight } ] }>
+						<Text variant="title">{ __( 'What should we build?' ) }</Text>
+						<Text color="mutedForeground">
+							{ __( 'Open the menu to choose a site and a chat.' ) }
+						</Text>
 					</View>
 				) }
 
-				<View style={ styles.body }>
-					{ chat ? (
-						<>
-							<Text variant="title">{ chat.title }</Text>
-							<Text color="mutedForeground">
-								{ __( 'The conversation comes in the next version.' ) }
-							</Text>
-						</>
-					) : (
-						<>
-							<Text variant="title">{ __( 'What should we build?' ) }</Text>
-							<Text color="mutedForeground">
-								{ __( 'Open the menu to choose a site and a chat.' ) }
-							</Text>
-						</>
+				<View
+					onLayout={ ( event ) => setTopHeight( event.nativeEvent.layout.height ) }
+					style={ [ styles.top, { paddingTop: insets.top } ] }
+				>
+					<TopBarBackdrop />
+					<View style={ styles.header }>
+						<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel={ __( 'Choose a site' ) }
+							onPress={ openDrawer }
+							style={ styles.capsulePress }
+						>
+							<FloatingSurface style={ styles.capsule }>
+								{ site && (
+									<StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } />
+								) }
+								<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
+									{ siteName }
+								</Text>
+								{ chat?.live && (
+									<Text variant="caption" color="warning">
+										{ __( 'Live' ) }
+									</Text>
+								) }
+							</FloatingSurface>
+						</Pressable>
+						<View style={ styles.headerEnd } />
+					</View>
+
+					{ status !== 'live' && (
+						<FloatingSurface style={ styles.banner } radius={ 16 }>
+							<View style={ styles.bannerLine }>
+								<StatusDot color={ liveStatusColor( status ) } />
+								<Text variant="bodyStrong" style={ styles.bannerText }>
+									{ liveStatusText( status, connection.label ) }
+								</Text>
+							</View>
+							{ status === 'reconnecting' && (
+								<Button variant="secondary" label={ __( 'Try again' ) } onPress={ reconnectNow } />
+							) }
+							{ status === 'wrong-computer' && (
+								<Text color="mutedForeground">
+									{ __(
+										'This phone sends nothing there. If your computer has a new address, forget this computer in Settings and pair again.'
+									) }
+								</Text>
+							) }
+						</FloatingSurface>
 					) }
 				</View>
 			</View>
@@ -140,6 +148,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 
 const styles = StyleSheet.create( {
 	screen: { flex: 1 },
+	top: { position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: space[ 2 ] },
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -160,7 +169,12 @@ const styles = StyleSheet.create( {
 	// As wide as the menu button, so the capsule sits in the middle. The "new
 	// chat" button takes this place when the chat arrives.
 	headerEnd: { width: 44 },
-	banner: { paddingHorizontal: space[ 5 ], paddingTop: space[ 4 ], gap: space[ 3 ] },
+	banner: {
+		marginHorizontal: space[ 4 ],
+		marginTop: space[ 3 ],
+		padding: space[ 4 ],
+		gap: space[ 3 ],
+	},
 	bannerLine: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
 	bannerText: { flex: 1 },
 	body: { flex: 1, justifyContent: 'center', paddingHorizontal: space[ 5 ], gap: space[ 2 ] },
