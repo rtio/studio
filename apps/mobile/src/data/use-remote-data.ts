@@ -10,10 +10,18 @@ import type { ChatRow } from './chat-list';
 import type { LiveStatus } from './live-status';
 import type { Connection } from '../connection/connection-store';
 
-// The sites of the paired computer. Events keep the list fresh while the
-// stream is live (data/live-connection.ts).
+// These requests carry the device token. They run only while the link is
+// live, which means the phone has just checked that the paired computer is the
+// one that answers. They never run by themselves: the live connection says
+// when a list is out of date (data/live-connection.ts).
+function useWhileLive() {
+	return { enabled: useLiveStatus() === 'live', staleTime: Infinity };
+}
+
+// The sites of the paired computer.
 export function useSites( connection: Connection ) {
 	return useQuery( {
+		...useWhileLive(),
 		queryKey: sitesKey( connection ),
 		queryFn: async ( { signal } ) =>
 			parseSites( await createConnectionClient( connection ).get( '/api/sites', { signal } ) ),
@@ -30,6 +38,7 @@ export function useChats( connection: Connection ): {
 	refetch: () => void;
 } {
 	const sessions = useQuery( {
+		...useWhileLive(),
 		queryKey: sessionsKey( connection ),
 		queryFn: async ( { signal } ) =>
 			parseSessions(
