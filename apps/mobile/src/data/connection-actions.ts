@@ -1,8 +1,9 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { createApiClient, UnauthorizedError } from '../connection/api-client';
-import { connectionStore, createConnectionClient } from '../connection/connection';
+import { createApiClient } from '../connection/api-client';
+import { connectionStore } from '../connection/connection';
 import { pairWithComputer } from '../connection/pairing';
+import { revokeThisDevice } from '../connection/revoke-device';
 import { queryClient } from './query-client';
 import type { Connection } from '../connection/connection-store';
 import type { PairingLink } from '../connection/pairing-link';
@@ -41,13 +42,7 @@ export async function pairThisPhone( link: PairingLink ): Promise< void > {
 // forgets it even when the computer does not answer. In that case the Pair
 // screen says that the computer still lists this phone.
 export async function forgetThisComputer( connection: Connection ): Promise< void > {
-	let revoked = true;
-	try {
-		await createConnectionClient( connection ).delete( '/api/remote/devices/current' );
-	} catch ( error ) {
-		// A 401 means the computer already removed this phone.
-		revoked = error instanceof UnauthorizedError;
-	}
-	await connectionStore.clear( revoked ? null : 'not-revoked' );
+	const revoked = await revokeThisDevice( connection, fetch );
+	await connectionStore.clearIfCurrent( connection.deviceId, revoked ? null : 'not-revoked' );
 	queryClient.clear();
 }
