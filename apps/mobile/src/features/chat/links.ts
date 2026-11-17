@@ -13,11 +13,16 @@ export function isOpenableLink( url: string ): boolean {
 	if ( parsed.protocol !== 'http:' && parsed.protocol !== 'https:' ) {
 		return false;
 	}
-	const host = parsed.hostname.toLowerCase();
+	// The URL parser writes IP addresses one way (`127.1` is `127.0.0.1`,
+	// `[::ffff:127.0.0.1]` is `[::ffff:7f00:1]`); a name can end in a dot.
+	const host = parsed.hostname.toLowerCase().replace( /\.+$/, '' );
 	const loopback =
 		host === 'localhost' ||
 		host.endsWith( '.localhost' ) ||
 		host.startsWith( '127.' ) ||
-		host === '[::1]';
+		host === '0.0.0.0' ||
+		host === '[::1]' ||
+		host === '[::]' ||
+		host.startsWith( '[::ffff:7f' );
 	return ! loopback;
 }

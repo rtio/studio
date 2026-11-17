@@ -77,7 +77,13 @@ describe( 'isOpenableLink', () => {
 			'http://localhost:8881/wp-admin/',
 			'http://my-site.localhost/',
 			'http://127.0.0.1:8881',
+			'http://127.1/',
 			'http://[::1]:8881',
+			'http://localhost.:8881',
+			'http://0.0.0.0:8881',
+			'http://0:8881',
+			'http://[::]:8881',
+			'http://[::ffff:127.0.0.1]:8881',
 		] ) {
 			expect( isOpenableLink( url ), url ).toBe( false );
 		}
