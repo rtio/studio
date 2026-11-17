@@ -27,7 +27,9 @@ export interface LiveReply {
 // What the stream adds to the open chat on top of what the computer saved.
 export interface ChatLive {
 	// The run the chat follows. An event of another run is a late event of a
-	// run that was stopped.
+	// run that was stopped. Null when the followed run ended, or when the stream
+	// opened again and may have missed the start of the next one: the next
+	// event that is not an end takes its run.
 	runId: string | null;
 	// The replies a read may not have yet, oldest first. Only the last one can
 	// still be written.
@@ -130,16 +132,18 @@ export function applyChatEvent(
 		// A run that ends while a reply streams does not finish that reply. The
 		// next read shows what was saved.
 		const replies = ending ? endLast( live.replies, mark ) : live.replies;
-		return { live: follow( { replies, error } ), read: true };
+		const runId = ending ? null : event.runId;
+		return { live: { ...live, runId, replies, error }, read: true };
 	}
 	return { live, read: false };
 }
 
-// Treats the reply being written as complete: the next read replaces it. For
-// a stream that opened again after it missed events.
+// For a stream that opened again after it missed events: the reply being
+// written is treated as complete, so the next read replaces it, and the chat
+// follows whichever run sends events next.
 export function endReply( live: ChatLive, mark: number ): ChatLive {
 	const replies = endLast( live.replies, mark );
-	return replies === live.replies ? live : { ...live, replies };
+	return replies === live.replies && live.runId === null ? live : { ...live, runId: null, replies };
 }
 
 function isCovered( reply: LiveReply, readAt: number ): boolean {

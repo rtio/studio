@@ -131,6 +131,34 @@ describe( 'applyChatEvent and visibleEntries', () => {
 		expect( visibleEntries( saved, 2, live.replies ) ).toBe( saved );
 	} );
 
+	it( 'follows a run whose start it missed, after the stream opened again', () => {
+		const before = play( [ { runId: 'run-1', type: 'run.started' }, update( 'Old' ) ] ).live;
+		const reopened = endReply( before, 3 );
+		const step = applyChatEvent( reopened, end( assistant( 'New reply.' ), 'run-2' ), 4 );
+
+		expect( reopened.runId ).toBeNull();
+		expect( step.read ).toBe( true );
+		expect( step.live ).toMatchObject( { runId: 'run-2' } );
+		expect( JSON.stringify( step.live.replies ) ).toContain( 'New reply.' );
+	} );
+
+	it( 'follows the next run after the one it followed ended, even without its start', () => {
+		const { live } = play( [
+			{ runId: 'run-1', type: 'run.started' },
+			{ runId: 'run-1', type: 'run.exited' },
+			update( 'Next', 'run-2' ),
+		] );
+
+		expect( live.runId ).toBe( 'run-2' );
+		expect( live.replies ).toEqual( [ expect.objectContaining( { runId: 'run-2' } ) ] );
+	} );
+
+	it( 'does not follow a run because of its end', () => {
+		const ended = play( [ { runId: 'run-1', type: 'run.exited' } ] ).live;
+
+		expect( ended.runId ).toBeNull();
+	} );
+
 	it( 'ignores the late events of a stopped run once a new run started', () => {
 		const { live, reads } = play( [
 			{ runId: 'run-1', type: 'run.started' },
