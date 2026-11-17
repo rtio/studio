@@ -31,11 +31,18 @@ function withActivity(
 	return next ? { ...rest, [ sessionId ]: next } : rest;
 }
 
-// Applies one event of the `agent` channel. `eventType` is `event.type`.
+// The inner events that mean the agent went on after a question: it starts a
+// new message or a new turn. Other inner events do not: the agent runs tools
+// side by side, and one of them can end while the question still waits.
+const AGENT_WENT_ON = new Set( [ 'message_start', 'turn_start' ] );
+
+// Applies one event of the `agent` channel. `eventType` is `event.type`, and
+// `detail` is the type of the inner event of a `message` event.
 export function applyAgentEvent(
 	activity: ActivityMap,
 	sessionId: string,
-	eventType: string
+	eventType: string,
+	detail?: string
 ): ActivityMap {
 	switch ( eventType ) {
 		case 'run.started':
@@ -44,9 +51,9 @@ export function applyAgentEvent(
 		case 'question.asked':
 			return withActivity( activity, sessionId, 'needs-answer' );
 		case 'message':
-			// The computer sends no event when a question is answered there. Text
-			// arriving after a question means the agent got its answer.
-			return activity[ sessionId ] === 'needs-answer'
+			// The computer sends no event when a question is answered there. The
+			// agent going on after a question means it got its answer.
+			return activity[ sessionId ] === 'needs-answer' && detail && AGENT_WENT_ON.has( detail )
 				? withActivity( activity, sessionId, 'working' )
 				: activity;
 		case 'turn.completed':

@@ -131,8 +131,13 @@ const SCRIPT = [
 	() => setRunning( sites[ 1 ], true ),
 	() => endRun( 'c1' ),
 	() => {
+		// Another tool of the same turn ends. The question still waits.
+		agent( 'c3', { type: 'message', message: { type: 'tool_execution_end' } } );
+	},
+	() => {
+		// The question is answered on the computer, and the agent goes on.
 		activeRuns.get( 'c3' ).pendingQuestions = [];
-		agent( 'c3', { type: 'message', message: { type: 'message_update' } } );
+		agent( 'c3', { type: 'message', message: { type: 'message_start' } } );
 	},
 	() => endRun( 'c3' ),
 	() => setRunning( sites[ 1 ], false ),

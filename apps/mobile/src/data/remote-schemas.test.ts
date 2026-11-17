@@ -90,6 +90,25 @@ describe( 'parseStreamMessage', () => {
 		} );
 	} );
 
+	it( 'keeps the type of the event that a message event wraps', () => {
+		const wrapped =
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"timestamp":"2026-11-17T10:00:02.000Z","type":"message","message":{"type":"message_start"}}}}';
+		const text =
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"type":"error","message":"Out of credits"}}}';
+
+		expect( parseStreamMessage( wrapped ) ).toEqual( {
+			channel: 'agent',
+			payload: {
+				runId: 'run-1',
+				sessionId: 'chat-1',
+				event: { type: 'message', detail: 'message_start' },
+			},
+		} );
+		expect( parseStreamMessage( text ) ).toMatchObject( {
+			payload: { event: { type: 'error', detail: undefined } },
+		} );
+	} );
+
 	it( 'reads a site event with the site it is about', () => {
 		const data =
 			'{"channel":"site-event","payload":{"event":"site-updated","siteId":"s1","running":true,"site":{"id":"s1","name":"My site","running":true,"url":"http://localhost:8881"}}}';

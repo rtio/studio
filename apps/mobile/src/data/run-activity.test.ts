@@ -28,13 +28,25 @@ describe( 'applyAgentEvent', () => {
 	it( 'follows a run from start to end', () => {
 		const started = applyAgentEvent( idle, 'chat-1', 'run.started' );
 		const asked = applyAgentEvent( started, 'chat-1', 'question.asked' );
-		const answered = applyAgentEvent( asked, 'chat-1', 'message' );
+		const answered = applyAgentEvent( asked, 'chat-1', 'message', 'message_start' );
 		const completed = applyAgentEvent( answered, 'chat-1', 'turn.completed' );
 
 		expect( started ).toEqual( { 'chat-1': 'working' } );
 		expect( asked ).toEqual( { 'chat-1': 'needs-answer' } );
 		expect( answered ).toEqual( { 'chat-1': 'working' } );
 		expect( completed ).toEqual( {} );
+	} );
+
+	it( 'keeps a question open while another tool of the same turn reports', () => {
+		const asked: ActivityMap = { 'chat-1': 'needs-answer' };
+
+		for ( const detail of [ 'tool_execution_update', 'tool_execution_end', 'message_update' ] ) {
+			expect( applyAgentEvent( asked, 'chat-1', 'message', detail ) ).toBe( asked );
+		}
+		expect( applyAgentEvent( asked, 'chat-1', 'message' ) ).toBe( asked );
+		expect( applyAgentEvent( asked, 'chat-1', 'message', 'turn_start' ) ).toEqual( {
+			'chat-1': 'working',
+		} );
 	} );
 
 	it( 'ends the activity when the run is stopped or exits', () => {

@@ -48,7 +48,9 @@ function start( connection: Connection ) {
 		}
 		if ( message.channel === 'agent' ) {
 			const { sessionId, event } = message.payload;
-			activityStore.set( applyAgentEvent( activityStore.get(), sessionId, event.type ) );
+			activityStore.set(
+				applyAgentEvent( activityStore.get(), sessionId, event.type, event.detail )
+			);
 			// A run changes the list of chats: a new chat appears, a title arrives,
 			// the order changes.
 			if ( event.type === 'run.started' || event.type === 'run.exited' ) {

@@ -52,13 +52,31 @@ export const parseSites = ( payload: unknown ) => parseList( siteSchema, payload
 export const parseSessions = ( payload: unknown ) => parseList( sessionSchema, payload );
 export const parseActiveRuns = ( payload: unknown ) => parseList( activeRunSchema, payload );
 
+// An agent event. `message` events wrap an event of the agent library, and
+// `detail` is the type of that inner event (`message_start`, `turn_start`,
+// `tool_execution_end`, ...). For `info` and `error`, `message` is plain text
+// and there is no detail.
+const agentEventSchema = z
+	.object( { type: z.string(), message: z.unknown().optional() } )
+	.transform( ( event ) => {
+		const inner = event.message;
+		const detail =
+			typeof inner === 'object' &&
+			inner !== null &&
+			'type' in inner &&
+			typeof inner.type === 'string'
+				? inner.type
+				: undefined;
+		return { type: event.type, detail };
+	} );
+
 const streamMessageSchema = z.discriminatedUnion( 'channel', [
 	z.object( {
 		channel: z.literal( 'agent' ),
 		payload: z.object( {
 			runId: z.string(),
 			sessionId: z.string(),
-			event: z.object( { type: z.string() } ),
+			event: agentEventSchema,
 		} ),
 	} ),
 	z.object( {
