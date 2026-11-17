@@ -1,0 +1,185 @@
+import { __ } from '@wordpress/i18n';
+import { Settings } from 'lucide-react-native';
+import { useState } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { chatsOfSite, searchChats } from '../../data/chat-list';
+import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '../../data/selection';
+import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
+import { space } from '../../theme/typography';
+import { useTheme } from '../../theme/use-theme';
+import { IconButton } from '../../ui/IconButton';
+import { ListRow } from '../../ui/ListRow';
+import { SearchField } from '../../ui/SearchField';
+import { Spinner } from '../../ui/Spinner';
+import { StatusDot } from '../../ui/StatusDot';
+import { Text } from '../../ui/Text';
+import { liveStatusColor, liveStatusText } from '../live-status-text';
+import type { Connection } from '../../connection/connection-store';
+import type { ChatRow } from '../../data/chat-list';
+
+interface DrawerContentProps {
+	connection: Connection;
+	// Called after the person chose a chat, so the drawer can close.
+	onChatChosen: () => void;
+	onOpenSettings: () => void;
+}
+
+// What the drawer holds: search, the sites with their status, the chats of the
+// chosen site, and the paired computer at the bottom.
+export function DrawerContent( { connection, onChatChosen, onOpenSettings }: DrawerContentProps ) {
+	const { colors } = useTheme();
+	const insets = useSafeAreaInsets();
+	const [ query, setQuery ] = useState( '' );
+	const sites = useSites( connection );
+	const { chats, isPending, isError, refetch } = useChats( connection );
+	const status = useLiveStatus();
+	const selectedSiteId = useSelectedSiteId();
+	const selectedChatId = useSelectedChatId();
+
+	// Search covers the chats of every site. Without a query the list is the
+	// chosen site's chats.
+	const searching = query.trim() !== '';
+	const shown = searching ? searchChats( chats, query ) : chatsOfSite( chats, selectedSiteId );
+
+	function chooseChat( chat: ChatRow ) {
+		selectChat( chat.id );
+		onChatChosen();
+	}
+
+	const header = (
+		<View style={ styles.header }>
+			<SearchField value={ query } onChangeText={ setQuery } placeholder={ __( 'Search chats' ) } />
+			{ ! searching && (
+				<View>
+					<Text variant="label" color="mutedForeground" style={ styles.heading }>
+						{ __( 'Sites' ) }
+					</Text>
+					<ListRow
+						label={ __( 'All chats' ) }
+						selected={ selectedSiteId === null }
+						onPress={ () => selectSite( null ) }
+					/>
+					{ ( sites.data ?? [] ).map( ( site ) => (
+						<ListRow
+							key={ site.id }
+							label={ site.name }
+							selected={ site.id === selectedSiteId }
+							leading={ <StatusDot color={ site.running ? 'statusRunning' : 'border' } /> }
+							onPress={ () => selectSite( site.id ) }
+						/>
+					) ) }
+					{ sites.isPending && <Spinner /> }
+				</View>
+			) }
+			<Text variant="label" color="mutedForeground" style={ styles.heading }>
+				{ searching ? __( 'Results' ) : __( 'Chats' ) }
+			</Text>
+		</View>
+	);
+
+	let empty: string = __( 'No chats yet.' );
+	if ( searching ) {
+		empty = __( 'No chat has these words in its title.' );
+	} else if ( isError ) {
+		empty = __( 'The chats did not load.' );
+	}
+
+	return (
+		<View style={ [ styles.drawer, { paddingTop: insets.top + space[ 3 ] } ] }>
+			<FlatList
+				data={ shown }
+				keyExtractor={ ( chat ) => chat.id }
+				keyboardShouldPersistTaps="handled"
+				contentContainerStyle={ styles.list }
+				ListHeaderComponent={ header }
+				ListEmptyComponent={
+					isPending ? (
+						<Spinner />
+					) : (
+						<View style={ styles.empty }>
+							<Text color="mutedForeground">{ empty }</Text>
+							{ isError && ! searching && (
+								<ListRow label={ __( 'Try again' ) } onPress={ refetch } />
+							) }
+						</View>
+					)
+				}
+				renderItem={ ( { item } ) => (
+					<ListRow
+						label={ item.title }
+						caption={
+							searching || selectedSiteId === null ? item.siteName ?? undefined : undefined
+						}
+						selected={ item.id === selectedChatId }
+						trailing={ <ChatMark chat={ item } /> }
+						onPress={ () => chooseChat( item ) }
+					/>
+				) }
+			/>
+			<View
+				style={ [
+					styles.footer,
+					{ borderTopColor: colors.border, paddingBottom: insets.bottom + space[ 3 ] },
+				] }
+			>
+				<View style={ styles.computer }>
+					<Text variant="bodyStrong" numberOfLines={ 1 }>
+						{ connection.label }
+					</Text>
+					<View style={ styles.status }>
+						<StatusDot color={ liveStatusColor( status ) } />
+						<Text
+							variant="caption"
+							color="mutedForeground"
+							numberOfLines={ 1 }
+							style={ styles.statusText }
+						>
+							{ liveStatusText( status, connection.label ) }
+						</Text>
+					</View>
+				</View>
+				<IconButton icon={ Settings } label={ __( 'Settings' ) } onPress={ onOpenSettings } />
+			</View>
+		</View>
+	);
+}
+
+// The mark at the end of a chat row: an accent dot when the agent waits for an
+// answer, a spinner while it works.
+function ChatMark( { chat }: { chat: ChatRow } ) {
+	if ( chat.activity === 'needs-answer' ) {
+		return (
+			<View accessible accessibilityLabel={ __( 'Needs an answer' ) }>
+				<StatusDot color="accent" />
+			</View>
+		);
+	}
+	if ( chat.activity === 'working' ) {
+		return (
+			<View accessible accessibilityLabel={ __( 'Working' ) }>
+				<Spinner />
+			</View>
+		);
+	}
+	return null;
+}
+
+const styles = StyleSheet.create( {
+	drawer: { flex: 1 },
+	list: { paddingHorizontal: space[ 3 ], paddingBottom: space[ 4 ] },
+	header: { gap: space[ 2 ] },
+	heading: { paddingHorizontal: space[ 3 ], paddingTop: space[ 3 ], paddingBottom: space[ 1 ] },
+	empty: { paddingHorizontal: space[ 3 ], gap: space[ 2 ] },
+	footer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: space[ 3 ],
+		paddingHorizontal: space[ 4 ],
+		paddingTop: space[ 3 ],
+		borderTopWidth: StyleSheet.hairlineWidth,
+	},
+	computer: { flex: 1, gap: 2 },
+	status: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
+	statusText: { flex: 1 },
+} );

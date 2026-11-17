@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useConnectionState } from '../connection/connection';
+import { syncLiveConnection } from '../data/live-connection';
 import { queryClient } from '../data/query-client';
 import { startApp } from '../startup';
 import { ThemeProvider } from '../theme/ThemeProvider';
@@ -33,6 +34,13 @@ function App() {
 	useEffect( () => {
 		void startApp().finally( () => setStarted( true ) );
 	}, [] );
+
+	// The event stream follows the paired computer: it starts after pairing and
+	// stops when the phone forgets the computer.
+	const connection = state.status === 'ready' ? state.connection : null;
+	useEffect( () => {
+		syncLiveConnection( connection );
+	}, [ connection ] );
 
 	// Draw nothing but the page color until the fonts, the stored connection and
 	// the system settings are read. Then no screen flashes or changes shape. If
