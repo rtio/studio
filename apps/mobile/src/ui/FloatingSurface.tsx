@@ -1,24 +1,32 @@
 import { BlurView } from 'expo-blur';
 import { GlassView } from 'expo-glass-effect';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useTheme } from '../theme/use-theme';
+import { FLOATING_SURFACE_RADIUS } from './FloatingSurface.types';
 import { useSurfaceMode } from './use-surface-mode';
 import type { FloatingSurfaceProps } from './FloatingSurface.types';
 import type { ViewStyle } from 'react-native';
 
-// The surface for controls that float over content. This file is the iOS version:
-// Liquid Glass, a blur on older iOS, or a solid surface. Android has its own file,
-// FloatingSurface.android.tsx, which draws a Material 3 surface.
-export function FloatingSurface( { children, style, radius = 22 }: FloatingSurfaceProps ) {
+// The surface for controls that float over content. This file is the version
+// for iOS and for any platform that is not Android: Liquid Glass, a blur on iOS
+// before 26, or a solid surface when the system asks for less transparency.
+// Android has FloatingSurface.android.tsx, which draws a Material 3 surface.
+export function FloatingSurface( {
+	children,
+	style,
+	radius = FLOATING_SURFACE_RADIUS,
+	interactive = false,
+}: FloatingSurfaceProps ) {
 	const mode = useSurfaceMode();
-	const dark = useColorScheme() === 'dark';
+	const { scheme, colors } = useTheme();
 	const shape: ViewStyle = { borderRadius: radius, overflow: 'hidden' };
 
 	if ( mode === 'liquid' ) {
 		return (
 			<GlassView
 				glassEffectStyle="regular"
-				isInteractive
-				colorScheme={ dark ? 'dark' : 'light' }
+				isInteractive={ interactive }
+				colorScheme={ scheme }
 				style={ [ shape, style ] }
 			>
 				{ children }
@@ -32,7 +40,7 @@ export function FloatingSurface( { children, style, radius = 22 }: FloatingSurfa
 				<BlurView
 					pointerEvents="none"
 					intensity={ 60 }
-					tint={ dark ? 'dark' : 'light' }
+					tint={ scheme }
 					style={ StyleSheet.absoluteFill }
 				/>
 				{ children }
@@ -41,7 +49,17 @@ export function FloatingSurface( { children, style, radius = 22 }: FloatingSurfa
 	}
 
 	return (
-		<View style={ [ shape, { backgroundColor: dark ? '#222327' : '#ffffff' }, style ] }>
+		<View
+			style={ [
+				shape,
+				{
+					backgroundColor: colors.floating,
+					borderColor: colors.floatingBorder,
+					borderWidth: StyleSheet.hairlineWidth,
+				},
+				style,
+			] }
+		>
 			{ children }
 		</View>
 	);

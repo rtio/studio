@@ -1,20 +1,24 @@
-import { useMaterialColors } from '@expo/ui/jetpack-compose';
 import { View } from 'react-native';
-import { STUDIO_SEED_COLOR } from '../theme/seed';
+import { useTheme } from '../theme/use-theme';
+import { FLOATING_SURFACE_RADIUS } from './FloatingSurface.types';
 import type { FloatingSurfaceProps } from './FloatingSurface.types';
 
 // The Android version of FloatingSurface. Android follows Material 3: an opaque
-// tonal surface with elevation. Its colors come from the same seeded palette that
-// themes the Compose controls, so both match.
-export function FloatingSurface( { children, style, radius = 22 }: FloatingSurfaceProps ) {
-	const colors = useMaterialColors( { seedColor: STUDIO_SEED_COLOR } );
+// tonal surface with elevation, with no blur. Its color is a Material role from
+// the theme, so it matches the Compose controls.
+export function FloatingSurface( {
+	children,
+	style,
+	radius = FLOATING_SURFACE_RADIUS,
+}: FloatingSurfaceProps ) {
+	const { colors } = useTheme();
 
 	return (
 		<View
 			style={ [
 				{
 					borderRadius: radius,
-					backgroundColor: colors.surfaceContainerHigh,
+					backgroundColor: colors.floating,
 					elevation: 3,
 					// Keeps children inside the rounded corners. The shadow stays.
 					overflow: 'hidden',
