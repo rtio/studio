@@ -56,7 +56,13 @@ export function useChats( connection: Connection ): {
 		chats,
 		isPending: sessions.isPending,
 		isError: sessions.isError,
-		refetch: () => void sessions.refetch(),
+		refetch: () => {
+			// `refetch` ignores `enabled`, and the read sends the device token:
+			// check the link here.
+			if ( liveStatusStore.get() === 'live' ) {
+				void sessions.refetch();
+			}
+		},
 	};
 }
 

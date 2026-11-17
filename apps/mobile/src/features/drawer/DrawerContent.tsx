@@ -107,7 +107,7 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 					) : (
 						<View style={ styles.empty }>
 							<Text color="mutedForeground">{ empty }</Text>
-							{ isError && ! searching && (
+							{ isError && ! searching && status === 'live' && (
 								<ListRow label={ __( 'Try again' ) } onPress={ refetch } />
 							) }
 						</View>
