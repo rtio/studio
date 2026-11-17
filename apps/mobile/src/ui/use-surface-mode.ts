@@ -1,34 +1,15 @@
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Platform } from 'react-native';
+import { useSyncExternalStore } from 'react';
+import { Platform } from 'react-native';
+import { reduceTransparencyStore } from './reduce-transparency';
 import { resolveSurfaceMode } from './surface-mode';
 import type { SurfaceMode } from './surface-mode';
 
-function useReduceTransparency(): boolean {
-	const [ enabled, setEnabled ] = useState( false );
-
-	useEffect( () => {
-		let cancelled = false;
-		void AccessibilityInfo.isReduceTransparencyEnabled().then( ( value ) => {
-			if ( ! cancelled ) {
-				setEnabled( value );
-			}
-		} );
-		const subscription = AccessibilityInfo.addEventListener(
-			'reduceTransparencyChanged',
-			setEnabled
-		);
-		return () => {
-			cancelled = true;
-			subscription.remove();
-		};
-	}, [] );
-
-	return enabled;
-}
-
 export function useSurfaceMode(): SurfaceMode {
-	const reduceTransparency = useReduceTransparency();
+	const reduceTransparency = useSyncExternalStore(
+		reduceTransparencyStore.subscribe,
+		reduceTransparencyStore.get
+	);
 
 	return resolveSurfaceMode( {
 		os: Platform.OS,
