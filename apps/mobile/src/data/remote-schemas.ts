@@ -60,6 +60,52 @@ export const parseSites = ( payload: unknown ) => parseList( siteSchema, payload
 export const parseSessions = ( payload: unknown ) => parseList( sessionSchema, payload );
 export const parseActiveRuns = ( payload: unknown ) => parseList( activeRunSchema, payload );
 
+// The saved entries of one chat, from `GET /api/sessions/:id`. The transcript
+// code reads them as the agent library wrote them, so they are kept whole.
+// That includes what tools returned, which can hold secrets, such as the
+// password of a site the agent created: the phone keeps the open chat in
+// memory only, and shows a tool step as one line without its result.
+const chatSchema = z.object( { entries: z.array( z.unknown() ) } );
+
+function isRecord( value: unknown ): value is Record< string, unknown > {
+	return typeof value === 'object' && value !== null;
+}
+
+// An entry with what the transcript code relies on: an id and a time, a
+// custom entry's kind, and the content of an assistant message or a tool
+// result.
+function isReadableEntry( entry: unknown ): entry is SessionEntry {
+	if (
+		! isRecord( entry ) ||
+		typeof entry.type !== 'string' ||
+		typeof entry.id !== 'string' ||
+		typeof entry.timestamp !== 'string'
+	) {
+		return false;
+	}
+	if ( entry.type === 'custom' ) {
+		return typeof entry.customType === 'string';
+	}
+	if ( entry.type !== 'message' ) {
+		return true;
+	}
+	const { message } = entry;
+	if ( ! isRecord( message ) || typeof message.role !== 'string' ) {
+		return false;
+	}
+	return (
+		( message.role !== 'assistant' && message.role !== 'toolResult' ) ||
+		Array.isArray( message.content )
+	);
+}
+
+// Returns null when the answer is not a chat at all. An entry the transcript
+// cannot read is skipped, so one odd entry does not hide the chat.
+export function parseChatEntries( payload: unknown ): SessionEntry[] | null {
+	const parsed = chatSchema.safeParse( payload );
+	return parsed.success ? parsed.data.entries.filter( isReadableEntry ) : null;
+}
+
 // An agent event. `message` events wrap an event of the agent library, and
 // `detail` is the type of that inner event (`message_start`, `turn_start`,
 // `tool_execution_end`, ...). For `info` and `error`, `message` is plain text

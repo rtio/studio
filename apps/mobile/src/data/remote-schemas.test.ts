@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseActiveRuns, parseSessions, parseSites, parseStreamMessage } from './remote-schemas';
+import {
+	parseActiveRuns,
+	parseChatEntries,
+	parseSessions,
+	parseSites,
+	parseStreamMessage,
+} from './remote-schemas';
 
 describe( 'parseSites', () => {
 	it( 'reads the sites and drops the address on the computer', () => {
@@ -84,6 +90,54 @@ describe( 'parseActiveRuns', () => {
 		expect( run.runId ).toBe( 'run-1' );
 		expect( run.sessionId ).toBe( 'chat-1' );
 		expect( run.pendingQuestions ).toHaveLength( 1 );
+	} );
+} );
+
+describe( 'parseChatEntries', () => {
+	const prompt = {
+		type: 'custom',
+		id: 'e1',
+		parentId: null,
+		timestamp: '2026-11-17T10:00:00.000Z',
+		customType: 'studio.user_prompt',
+		data: { text: 'Add a header', source: 'prompt' },
+	};
+	const reply = {
+		type: 'message',
+		id: 'e2',
+		parentId: 'e1',
+		timestamp: '2026-11-17T10:00:02.000Z',
+		message: { role: 'assistant', content: [ { type: 'text', text: 'Done.' } ] },
+	};
+
+	it( 'keeps the entries whole, in order', () => {
+		const header = {
+			type: 'session',
+			version: 3,
+			id: 'chat-1',
+			timestamp: '2026-11-17T10:00:00.000Z',
+		};
+
+		expect( parseChatEntries( { summary: {}, entries: [ header, prompt, reply ] } ) ).toEqual( [
+			header,
+			prompt,
+			reply,
+		] );
+	} );
+
+	it( 'skips an entry the transcript cannot read', () => {
+		const noId = { ...prompt, id: undefined };
+		const noKind = { ...prompt, customType: undefined };
+		const noContent = { ...reply, message: { role: 'assistant' } };
+
+		expect( parseChatEntries( { entries: [ noId, noKind, noContent, reply ] } ) ).toEqual( [
+			reply,
+		] );
+	} );
+
+	it( 'returns null for an answer that is not a chat', () => {
+		expect( parseChatEntries( { error: 'Session not found' } ) ).toBeNull();
+		expect( parseChatEntries( [] ) ).toBeNull();
 	} );
 } );
 
