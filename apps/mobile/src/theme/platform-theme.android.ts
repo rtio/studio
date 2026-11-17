@@ -5,10 +5,10 @@ import { STUDIO_SEED_COLOR } from './seed';
 import { studioThemes, withMaterialRoles } from './theme';
 import type { Theme } from './theme';
 
-// The Android version of useTheme. The Material palette is seeded with Studio's
-// blue, the same seed the Compose controls use, so React Native surfaces and
-// Compose controls share one palette.
-export function useTheme(): Theme {
+// The Android version of usePlatformTheme. The Material palette is seeded with
+// Studio's blue, the same seed the Compose controls use, so React Native
+// surfaces and Compose controls share one palette.
+export function usePlatformTheme(): Theme {
 	const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 	const material = useMaterialColors( { seedColor: STUDIO_SEED_COLOR } );
 	const {

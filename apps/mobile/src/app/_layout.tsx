@@ -9,9 +9,18 @@ import { View } from 'react-native';
 import { useConnectionState } from '../connection/connection';
 import { queryClient } from '../data/query-client';
 import { startApp } from '../startup';
+import { ThemeProvider } from '../theme/ThemeProvider';
 import { useTheme } from '../theme/use-theme';
 
 export default function RootLayout() {
+	return (
+		<ThemeProvider>
+			<App />
+		</ThemeProvider>
+	);
+}
+
+function App() {
 	const [ fontsLoaded, fontsFailed ] = useFonts( {
 		Inter_400Regular,
 		Inter_500Medium,
