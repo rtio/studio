@@ -21,7 +21,9 @@ const sessionSchema = z.object( {
 	archived: z.boolean().optional(),
 	ownerSiteId: z.string().optional(),
 	ownerSiteName: z.string().optional(),
-	activeEnvironment: z.enum( [ 'local', 'live' ] ).optional(),
+	// 'local' or 'live'. Read as text, so a target a newer Studio adds does not
+	// make the chat vanish from the list.
+	activeEnvironment: z.string().optional(),
 } );
 export type Session = z.infer< typeof sessionSchema >;
 

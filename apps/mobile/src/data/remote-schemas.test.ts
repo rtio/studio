@@ -50,6 +50,14 @@ describe( 'parseSessions', () => {
 		] );
 	} );
 
+	it( 'keeps a chat whose target is one the phone does not know', () => {
+		const payload = [
+			{ id: 'chat-1', updatedAt: '2026-11-17T10:00:00.000Z', activeEnvironment: 'staging' },
+		];
+
+		expect( parseSessions( payload ) ).toHaveLength( 1 );
+	} );
+
 	it( 'reads a draft that has only an id and a date', () => {
 		const payload = [ { id: 'draft', updatedAt: '2026-11-17T10:00:00.000Z', eventCount: 0 } ];
 
