@@ -47,9 +47,14 @@ function start( connection: Connection ) {
 			return;
 		}
 		if ( message.channel === 'agent' ) {
-			const { sessionId, event } = message.payload;
+			const { sessionId, runId, event } = message.payload;
 			activityStore.set(
-				applyAgentEvent( activityStore.get(), sessionId, event.type, event.detail )
+				applyAgentEvent( activityStore.get(), {
+					sessionId,
+					runId,
+					type: event.type,
+					detail: event.detail,
+				} )
 			);
 			// A run changes the list of chats: a new chat appears, a title arrives,
 			// the order changes.

@@ -37,7 +37,7 @@ export function listChats(
 			title: chatTitle( session, untitled ),
 			siteId: session.ownerSiteId ?? null,
 			siteName: session.ownerSiteName ?? null,
-			activity: activity[ session.id ] ?? null,
+			activity: activity[ session.id ]?.activity ?? null,
 			live: session.activeEnvironment === 'live',
 		} ) );
 }

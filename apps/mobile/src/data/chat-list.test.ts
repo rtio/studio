@@ -51,7 +51,11 @@ describe( 'listChats', () => {
 	} );
 
 	it( 'carries the site, the activity and the live target of each chat', () => {
-		const chats = listChats( SESSIONS, { older: 'needs-answer' }, 'New chat' );
+		const chats = listChats(
+			SESSIONS,
+			{ older: { runId: 'run-1', activity: 'needs-answer' } },
+			'New chat'
+		);
 
 		expect( chats[ 0 ] ).toEqual( {
 			id: 'newer',
@@ -66,7 +70,11 @@ describe( 'listChats', () => {
 	} );
 
 	it( 'keeps a draft that is working', () => {
-		const chats = listChats( SESSIONS, { draft: 'working' }, 'New chat' );
+		const chats = listChats(
+			SESSIONS,
+			{ draft: { runId: 'run-1', activity: 'working' } },
+			'New chat'
+		);
 
 		expect( chats[ 0 ] ).toMatchObject( { id: 'draft', title: 'New chat', activity: 'working' } );
 	} );

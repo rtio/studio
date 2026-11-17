@@ -4,25 +4,41 @@ import type { ActiveRun } from './remote-schemas';
 // but the answer is what the person must act on, so it wins.
 export type ChatActivity = 'working' | 'needs-answer';
 
+// The run a chat has now, and what it is doing.
+export interface ChatRun {
+	runId: string;
+	activity: ChatActivity;
+}
+
 // By chat id. A chat that is idle has no entry.
-export type ActivityMap = Readonly< Record< string, ChatActivity > >;
+export type ActivityMap = Readonly< Record< string, ChatRun > >;
+
+// One event of the `agent` channel, cut down to what the activity needs.
+// `type` is `event.type`. `detail` is the type of the inner event of a
+// `message` event.
+export interface AgentEventInfo {
+	sessionId: string;
+	runId: string;
+	type: string;
+	detail?: string;
+}
 
 // The state when the stream opens, from `GET /api/runs/active`. The stream
 // cannot replay what it missed, so this is read again at every reconnect.
 export function activityFromActiveRuns( runs: ActiveRun[] ): ActivityMap {
-	const activity: Record< string, ChatActivity > = {};
+	const activity: Record< string, ChatRun > = {};
 	for ( const run of runs ) {
-		activity[ run.sessionId ] = run.pendingQuestions?.length ? 'needs-answer' : 'working';
+		activity[ run.sessionId ] = {
+			runId: run.runId,
+			activity: run.pendingQuestions?.length ? 'needs-answer' : 'working',
+		};
 	}
 	return activity;
 }
 
-function withActivity(
-	activity: ActivityMap,
-	sessionId: string,
-	next: ChatActivity | null
-): ActivityMap {
-	if ( ( activity[ sessionId ] ?? null ) === next ) {
+function withRun( activity: ActivityMap, sessionId: string, next: ChatRun | null ): ActivityMap {
+	const current = activity[ sessionId ];
+	if ( current?.runId === next?.runId && current?.activity === next?.activity ) {
 		// The same object, so nothing that reads it draws again. Most events of a
 		// run are text arriving, which changes nothing here.
 		return activity;
@@ -36,31 +52,37 @@ function withActivity(
 // side by side, and one of them can end while the question still waits.
 const AGENT_WENT_ON = new Set( [ 'message_start', 'turn_start' ] );
 
-// Applies one event of the `agent` channel. `eventType` is `event.type`, and
-// `detail` is the type of the inner event of a `message` event.
-export function applyAgentEvent(
-	activity: ActivityMap,
-	sessionId: string,
-	eventType: string,
-	detail?: string
-): ActivityMap {
-	switch ( eventType ) {
-		case 'run.started':
+// Applies one event of the `agent` channel.
+export function applyAgentEvent( activity: ActivityMap, event: AgentEventInfo ): ActivityMap {
+	const { sessionId, runId, type, detail } = event;
+	const current = activity[ sessionId ];
+
+	if ( type === 'run.started' ) {
+		return withRun( activity, sessionId, { runId, activity: 'working' } );
+	}
+	// A stopped run leaves the computer's list at once, so a new run can start
+	// in the same chat before the last events of the old one arrive. Those late
+	// events must not touch the new run.
+	if ( current && current.runId !== runId ) {
+		return activity;
+	}
+
+	switch ( type ) {
 		case 'turn.started':
-			return withActivity( activity, sessionId, 'working' );
+			return withRun( activity, sessionId, { runId, activity: 'working' } );
 		case 'question.asked':
-			return withActivity( activity, sessionId, 'needs-answer' );
+			return withRun( activity, sessionId, { runId, activity: 'needs-answer' } );
 		case 'message':
 			// The computer sends no event when a question is answered there. The
 			// agent going on after a question means it got its answer.
-			return activity[ sessionId ] === 'needs-answer' && detail && AGENT_WENT_ON.has( detail )
-				? withActivity( activity, sessionId, 'working' )
+			return current?.activity === 'needs-answer' && detail && AGENT_WENT_ON.has( detail )
+				? withRun( activity, sessionId, { runId, activity: 'working' } )
 				: activity;
 		case 'turn.completed':
 		case 'run.interrupting':
 		case 'run.interrupted':
 		case 'run.exited':
-			return withActivity( activity, sessionId, null );
+			return withRun( activity, sessionId, null );
 		default:
 			return activity;
 	}
