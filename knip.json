@@ -47,8 +47,8 @@
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/mobile": {
-			"entry": ["src/app/**/*.tsx", "src/**/*.android.tsx"],
-			"project": "src/**/*.{ts,tsx}"
+			"entry": ["src/app/**/*.tsx", "src/**/*.android.tsx", "scripts/*.mjs"],
+			"project": "{src,scripts}/**/*.{ts,tsx,mjs}"
 		},
 		"packages/agent": {
 			"project": "**/*.ts"

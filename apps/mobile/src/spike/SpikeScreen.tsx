@@ -8,6 +8,7 @@ import { useSurfaceMode } from '../ui/use-surface-mode';
 import { MarkdownSample } from './MarkdownSample';
 import { NativeModulesCheck } from './NativeModulesCheck';
 import { SpikeIconButton } from './SpikeIconButton';
+import { StreamCheck } from './StreamCheck';
 
 const STRIPES = [ '#3858e9', '#e26f56', '#00a32a', '#dba617', '#9a69c7', '#1e1e1e' ];
 
@@ -31,6 +32,7 @@ export function SpikeScreen() {
 				<Text style={ { color: palette.muted } }>taps: { taps }</Text>
 				<MarkdownSample />
 				<NativeModulesCheck />
+				<StreamCheck />
 				{ [ ...STRIPES, ...STRIPES ].map( ( color, index ) => (
 					<View key={ index } style={ [ styles.stripe, { backgroundColor: color } ] } />
 				) ) }
