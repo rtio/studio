@@ -5,7 +5,7 @@ import type { ActiveRun } from './remote-schemas';
 export type ChatActivity = 'working' | 'needs-answer';
 
 // The run a chat has now, and what it is doing.
-export interface ChatRun {
+interface ChatRun {
 	runId: string;
 	activity: ChatActivity;
 }
