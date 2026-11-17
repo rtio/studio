@@ -48,7 +48,8 @@
 		},
 		"apps/mobile": {
 			"entry": ["src/app/**/*.tsx", "src/**/*.android.tsx", "scripts/*.mjs"],
-			"project": "{src,scripts}/**/*.{ts,tsx,mjs}"
+			"project": "{src,scripts}/**/*.{ts,tsx,mjs}",
+			"ignoreDependencies": ["react-native-enriched-markdown"]
 		},
 		"packages/agent": {
 			"project": "**/*.ts"

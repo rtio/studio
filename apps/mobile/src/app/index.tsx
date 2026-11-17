@@ -1,5 +1,5 @@
-import { SpikeScreen } from '../spike/SpikeScreen';
+import { HomeScreen } from '../features/home/HomeScreen';
 
 export default function Index() {
-	return <SpikeScreen />;
+	return <HomeScreen />;
 }
