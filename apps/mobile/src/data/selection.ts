@@ -6,6 +6,7 @@ const selectedSiteStore = createValueStore< string | null >( null );
 const selectedChatStore = createValueStore< string | null >( null );
 
 export const selectSite = selectedSiteStore.set;
+export const selectedSiteId = selectedSiteStore.get;
 export const selectChat = selectedChatStore.set;
 
 export function resetSelection(): void {
