@@ -7,6 +7,8 @@ const config: ExpoConfig = {
 	orientation: 'portrait',
 	scheme: 'studio-remote',
 	userInterfaceStyle: 'automatic',
+	// The app has no over-the-air updates.
+	updates: { enabled: false },
 	ios: {
 		bundleIdentifier: 'com.automattic.studio.mobile',
 		supportsTablet: false,
