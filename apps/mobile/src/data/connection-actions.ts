@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { UnauthorizedError } from '../connection/api-client';
+import { createApiClient, UnauthorizedError } from '../connection/api-client';
 import { connectionStore, createConnectionClient } from '../connection/connection';
 import { pairWithComputer } from '../connection/pairing';
 import { queryClient } from './query-client';
@@ -18,7 +18,23 @@ export async function pairThisPhone( link: PairingLink ): Promise< void > {
 		fetch,
 	} );
 	queryClient.clear();
-	await connectionStore.save( connection );
+	try {
+		await connectionStore.save( connection );
+	} catch ( error ) {
+		// The code is spent and the computer lists this phone, but the phone could
+		// not keep the token. Ask the computer to remove the phone again, so no
+		// unused device stays listed.
+		try {
+			await createApiClient( {
+				baseUrl: connection.baseUrl,
+				token: connection.token,
+				fetch,
+			} ).delete( '/api/remote/devices/current' );
+		} catch {
+			// Nothing more the phone can do. The token is lost and expires by itself.
+		}
+		throw error;
+	}
 }
 
 // Asks the computer to remove this phone, then forgets the computer. The phone
