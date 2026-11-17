@@ -15,9 +15,11 @@ export class WrongComputerError extends Error {
 const descriptorSchema = z.object( { instanceId: z.string().min( 1 ) } );
 
 // Asks who answers at the paired address, with no device token in the request.
-// The phone calls this before it sends the token, so the token only ever goes
-// to the computer it was paired with. Throws WrongComputerError, or
-// UnreachableError when nothing answers.
+// The phone calls this before it sends the token, so the token does not go to
+// another device that happens to have the paired address now. This guards
+// against accidents. It is not a defense against an attacker: the id is not a
+// secret, and v1 talks plain HTTP, which the design accepts and warns about.
+// Throws WrongComputerError, or UnreachableError when nothing answers.
 export async function verifyComputer(
 	paired: { baseUrl: string; instanceId: string },
 	fetch: FetchLike,
