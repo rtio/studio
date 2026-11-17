@@ -40,6 +40,16 @@ export function createConnectionStore(
 ) {
 	const state = createValueStore< ConnectionState >( { status: 'loading' } );
 
+	// Forgets the computer. The screen changes at once; storage follows.
+	async function clear( notice: ConnectionNotice | null = null ): Promise< void > {
+		state.set( { status: 'ready', connection: null, notice } );
+		try {
+			await storage.removeItem( STORAGE_KEY );
+		} catch {
+			// Nothing more to do: the app already behaves as not paired.
+		}
+	}
+
 	return {
 		getState: state.get,
 		subscribe: state.subscribe,
@@ -70,13 +80,15 @@ export function createConnectionStore(
 			state.set( { status: 'ready', connection, notice: null } );
 		},
 
-		// Forgets the computer. The screen changes at once; storage follows.
-		async clear( notice: ConnectionNotice | null = null ): Promise< void > {
-			state.set( { status: 'ready', connection: null, notice } );
-			try {
-				await storage.removeItem( STORAGE_KEY );
-			} catch {
-				// Nothing more to do: the app already behaves as not paired.
+		clear,
+
+		// Forgets the computer because it refused `deviceId`, but only while that
+		// device is still the paired one. An answer that arrives late, for a pairing
+		// the phone already forgot or replaced, changes nothing.
+		async clearIfCurrent( deviceId: string, notice: ConnectionNotice ): Promise< void > {
+			const current = state.get();
+			if ( current.status === 'ready' && current.connection?.deviceId === deviceId ) {
+				await clear( notice );
 			}
 		},
 	};

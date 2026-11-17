@@ -93,6 +93,62 @@ describe( 'createConnectionStore', () => {
 		expect( await storage.getItem( 'studio.connection' ) ).toBeNull();
 	} );
 
+	it( 'reads as not paired when storage cannot be read', async () => {
+		const storage = createMemoryStorage( STORED );
+		storage.getItem = async () => {
+			throw new Error( 'storage is locked' );
+		};
+		const store = createConnectionStore( storage, () => NOW );
+
+		await store.load();
+
+		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: null } );
+	} );
+
+	it( 'does not report a connection it could not save', async () => {
+		const storage = createMemoryStorage();
+		storage.setItem = async () => {
+			throw new Error( 'storage is locked' );
+		};
+		const store = createConnectionStore( storage, () => NOW );
+		await store.load();
+
+		await expect( store.save( CONNECTION ) ).rejects.toThrow( 'storage is locked' );
+		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: null } );
+	} );
+
+	it( 'clears the connection when the device that was refused is still the paired one', async () => {
+		const storage = createMemoryStorage( STORED );
+		const store = createConnectionStore( storage, () => NOW );
+		await store.load();
+
+		await store.clearIfCurrent( CONNECTION.deviceId, 'unpaired' );
+
+		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: 'unpaired' } );
+		expect( await storage.getItem( 'studio.connection' ) ).toBeNull();
+	} );
+
+	it( 'keeps a newer pairing when an older device is refused', async () => {
+		const storage = createMemoryStorage( STORED );
+		const store = createConnectionStore( storage, () => NOW );
+		await store.load();
+
+		await store.clearIfCurrent( 'device-from-an-older-pairing', 'unpaired' );
+
+		expect( store.getState() ).toEqual( { status: 'ready', connection: CONNECTION, notice: null } );
+		expect( await storage.getItem( 'studio.connection' ) ).not.toBeNull();
+	} );
+
+	it( 'does not add a notice when a device is refused after the phone forgot the computer', async () => {
+		const store = createConnectionStore( createMemoryStorage( STORED ), () => NOW );
+		await store.load();
+		await store.clear();
+
+		await store.clearIfCurrent( CONNECTION.deviceId, 'unpaired' );
+
+		expect( store.getState() ).toEqual( { status: 'ready', connection: null, notice: null } );
+	} );
+
 	it( 'still clears the connection in memory when storage fails', async () => {
 		const storage = createMemoryStorage( STORED );
 		const store = createConnectionStore( storage, () => NOW );
