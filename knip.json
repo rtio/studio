@@ -46,6 +46,10 @@
 			"entry": ["src/index.ts"],
 			"project": "src/**/*.{ts,tsx}"
 		},
+		"apps/mobile": {
+			"entry": ["src/app/**/*.tsx"],
+			"project": "src/**/*.{ts,tsx}"
+		},
 		"packages/agent": {
 			"project": "**/*.ts"
 		},
