@@ -3,17 +3,17 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useConnectionState } from '../../connection/connection';
 import { forgetThisComputer } from '../../data/connection-actions';
 import { colorSchemePreference, useColorSchemePreference } from '../../theme/color-scheme';
 import { space } from '../../theme/typography';
 import { Button } from '../../ui/Button';
 import { ChoiceRow } from '../../ui/ChoiceRow';
+import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { IconButton } from '../../ui/IconButton';
 import { Screen } from '../../ui/Screen';
 import { Text } from '../../ui/Text';
-import type { Connection } from '../../connection/connection-store';
 import type { ColorSchemePreference } from '../../theme/color-scheme-preference';
 
 // The paired computer with "Forget this computer", the theme, and the version.
@@ -21,6 +21,7 @@ export function SettingsScreen() {
 	const router = useRouter();
 	const state = useConnectionState();
 	const preference = useColorSchemePreference();
+	const [ asking, setAsking ] = useState( false );
 	const [ forgetting, setForgetting ] = useState( false );
 	const connection = state.status === 'ready' ? state.connection : null;
 
@@ -29,22 +30,6 @@ export function SettingsScreen() {
 		{ value: 'light', label: __( 'Light' ) },
 		{ value: 'dark', label: __( 'Dark' ) },
 	];
-
-	async function forget( paired: Connection ) {
-		setForgetting( true );
-		await forgetThisComputer( paired );
-	}
-
-	function confirmForget( paired: Connection ) {
-		Alert.alert(
-			__( 'Forget this computer?' ),
-			__( 'This phone will need a new pairing code to connect again.' ),
-			[
-				{ text: __( 'Cancel' ), style: 'cancel' },
-				{ text: __( 'Forget' ), style: 'destructive', onPress: () => void forget( paired ) },
-			]
-		);
-	}
 
 	return (
 		<Screen>
@@ -64,7 +49,21 @@ export function SettingsScreen() {
 						variant="destructive"
 						label={ __( 'Forget this computer' ) }
 						disabled={ forgetting }
-						onPress={ () => confirmForget( connection ) }
+						onPress={ () => setAsking( true ) }
+					/>
+					<ConfirmDialog
+						visible={ asking }
+						title={ __( 'Forget this computer?' ) }
+						message={ __( 'This phone will need a new pairing code to connect again.' ) }
+						confirmLabel={ __( 'Forget' ) }
+						cancelLabel={ __( 'Cancel' ) }
+						destructive
+						onCancel={ () => setAsking( false ) }
+						onConfirm={ () => {
+							setAsking( false );
+							setForgetting( true );
+							void forgetThisComputer( connection );
+						} }
 					/>
 				</View>
 			) }
