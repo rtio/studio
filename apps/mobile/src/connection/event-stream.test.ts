@@ -96,23 +96,54 @@ describe( 'startEventStream', () => {
 		expect( computer.connect ).toHaveBeenCalledTimes( 3 );
 	} );
 
-	it( 'reconnects when the computer ends the stream, and starts the waits again after it was live', async () => {
+	it( 'reconnects when the computer ends the stream', async () => {
 		const computer = fakeComputer();
 		const { statuses, onOpen } = start( computer );
 
-		computer.attempts[ 0 ].fail( new Error( 'no answer' ) );
+		computer.attempts[ 0 ].connection.onOpen();
+		computer.attempts[ 0 ].end();
+		await settle();
+
+		expect( statuses ).toEqual( [ 'connecting', 'live', 'reconnecting' ] );
+		await vi.advanceTimersByTimeAsync( 1_000 );
+		expect( computer.connect ).toHaveBeenCalledTimes( 2 );
+
+		computer.attempts[ 1 ].connection.onOpen();
+		expect( onOpen ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'keeps the waits growing for a computer that accepts the stream and closes it at once', async () => {
+		const computer = fakeComputer();
+		start( computer );
+
+		computer.attempts[ 0 ].connection.onOpen();
+		computer.attempts[ 0 ].end();
 		await settle();
 		await vi.advanceTimersByTimeAsync( 1_000 );
 		computer.attempts[ 1 ].connection.onOpen();
 		computer.attempts[ 1 ].end();
 		await settle();
 
-		expect( statuses ).toEqual( [ 'connecting', 'reconnecting', 'live', 'reconnecting' ] );
+		await vi.advanceTimersByTimeAsync( 1_999 );
+		expect( computer.connect ).toHaveBeenCalledTimes( 2 );
+		await vi.advanceTimersByTimeAsync( 1 );
+		expect( computer.connect ).toHaveBeenCalledTimes( 3 );
+	} );
+
+	it( 'starts the waits again after the stream stayed open for ten seconds', async () => {
+		const computer = fakeComputer();
+		start( computer );
+
+		computer.attempts[ 0 ].fail( new Error( 'no answer' ) );
+		await settle();
+		await vi.advanceTimersByTimeAsync( 1_000 );
+		computer.attempts[ 1 ].connection.onOpen();
+		await vi.advanceTimersByTimeAsync( 10_000 );
+		computer.attempts[ 1 ].end();
+		await settle();
+
 		await vi.advanceTimersByTimeAsync( 1_000 );
 		expect( computer.connect ).toHaveBeenCalledTimes( 3 );
-
-		computer.attempts[ 2 ].connection.onOpen();
-		expect( onOpen ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'reconnects now when asked, and ignores the connection it dropped', async () => {

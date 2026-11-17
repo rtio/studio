@@ -35,6 +35,9 @@ export interface EventStream {
 	stop: () => void;
 }
 
+// A stream that stayed open this long was a good connection.
+const STABLE_AFTER_MS = 10_000;
+
 // Keeps one event stream open to the computer. When the stream ends or fails
 // it tries again, after 1 s at first and up to 30 s between later tries.
 export function startEventStream( options: EventStreamOptions ): EventStream {
@@ -47,7 +50,9 @@ export function startEventStream( options: EventStreamOptions ): EventStream {
 
 	function connect() {
 		const mine = ++current;
-		controller = new AbortController();
+		const attempt = new AbortController();
+		controller = attempt;
+		let openedAt: number | null = null;
 		const parser = createSseParser( ( event ) => {
 			if ( mine === current ) {
 				options.onMessage( event.data );
@@ -56,10 +61,10 @@ export function startEventStream( options: EventStreamOptions ): EventStream {
 
 		void options
 			.connect( {
-				signal: controller.signal,
+				signal: attempt.signal,
 				onOpen: () => {
 					if ( mine === current ) {
-						failures = 0;
+						openedAt = Date.now();
 						options.onStatus( 'live' );
 						options.onOpen();
 					}
@@ -82,6 +87,12 @@ export function startEventStream( options: EventStreamOptions ): EventStream {
 					stopped = true;
 					options.onStatus( 'stopped', error );
 					return;
+				}
+				// Start the waits again only after a connection that lasted. A computer
+				// that accepts the stream and closes it at once would otherwise be
+				// asked every second, and each open reloads the lists.
+				if ( openedAt !== null && Date.now() - openedAt >= STABLE_AFTER_MS ) {
+					failures = 0;
 				}
 				options.onStatus( 'reconnecting', error );
 				timer = setTimeout( connect, backoffDelay( failures ) );
