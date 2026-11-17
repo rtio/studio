@@ -12,7 +12,11 @@ import { startApp } from '../startup';
 import { useTheme } from '../theme/use-theme';
 
 export default function RootLayout() {
-	const [ fontsLoaded ] = useFonts( { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } );
+	const [ fontsLoaded, fontsFailed ] = useFonts( {
+		Inter_400Regular,
+		Inter_500Medium,
+		Inter_600SemiBold,
+	} );
 	const [ started, setStarted ] = useState( false );
 	const state = useConnectionState();
 	const { colors } = useTheme();
@@ -22,8 +26,9 @@ export default function RootLayout() {
 	}, [] );
 
 	// Draw nothing but the page color until the fonts, the stored connection and
-	// the system settings are read. Then no screen flashes or changes shape.
-	if ( ! fontsLoaded || ! started || state.status === 'loading' ) {
+	// the system settings are read. Then no screen flashes or changes shape. If
+	// the fonts cannot load, the app goes on with the system font.
+	if ( ! ( fontsLoaded || fontsFailed ) || ! started || state.status === 'loading' ) {
 		return <View style={ { flex: 1, backgroundColor: colors.background } } />;
 	}
 
