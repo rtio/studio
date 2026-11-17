@@ -44,6 +44,9 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 
 	function chooseChat( chat: ChatRow ) {
 		selectChat( chat.id );
+		// The drawer stays in memory while it is closed. Without this, the next
+		// time it opens it would still show the old search.
+		setQuery( '' );
 		onChatChosen();
 	}
 
