@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, Linking, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parsePairingUrl } from '../../connection/pairing-link';
 import { space } from '../../theme/typography';
@@ -19,7 +19,7 @@ interface QrScannerProps {
 // The camera, looking for the QR code that `studio remote` shows. It asks for
 // the camera permission the first time.
 export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
-	const [ permission, requestPermission ] = useCameraPermissions();
+	const [ permission, requestPermission, readPermission ] = useCameraPermissions();
 	const [ wrongCode, setWrongCode ] = useState( false );
 	const found = useRef( false );
 	const { colors } = useTheme();
@@ -34,6 +34,16 @@ export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 		} );
 		return () => subscription.remove();
 	}, [ onCancel ] );
+
+	// The person can allow the camera in the system settings and come back.
+	useEffect( () => {
+		const subscription = AppState.addEventListener( 'change', ( appState ) => {
+			if ( appState === 'active' ) {
+				void readPermission();
+			}
+		} );
+		return () => subscription.remove();
+	}, [ readPermission ] );
 
 	if ( ! permission ) {
 		return <View style={ [ styles.fill, { backgroundColor: colors.background } ] } />;
