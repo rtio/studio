@@ -23,6 +23,8 @@ export function TextField( { label, ...rest }: TextFieldProps ) {
 				{ ...rest }
 				accessibilityLabel={ label }
 				placeholderTextColor={ colors.placeholder }
+				cursorColor={ colors.accent }
+				selectionColor={ colors.accent }
 				onFocus={ () => setFocused( true ) }
 				onBlur={ () => setFocused( false ) }
 				style={ [
