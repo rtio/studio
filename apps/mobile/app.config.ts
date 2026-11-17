@@ -23,11 +23,14 @@ const config: ExpoConfig = {
 	plugins: [
 		'expo-router',
 		[ 'expo-build-properties', { android: { usesCleartextTraffic: true } } ],
-		'expo-secure-store',
+		// The app has no biometric gate, so it asks for no Face ID permission.
+		[ 'expo-secure-store', { faceIDPermission: false } ],
 		[
 			'expo-camera',
 			{
 				cameraPermission: 'Studio uses the camera to scan the pairing code shown by your computer.',
+				// The camera only scans the pairing code. No microphone on either platform.
+				microphonePermission: false,
 				recordAudioAndroid: false,
 			},
 		],
