@@ -144,6 +144,24 @@ describe( 'pairWithComputer', () => {
 		expect( await failureOf( malformed ) ).toBe( 'failed' );
 	} );
 
+	it( 'sends a device name the computer accepts: 1 to 80 characters', async () => {
+		const longName = fakeComputer( { status: 200, payload: DESCRIPTOR } );
+		const noName = fakeComputer( { status: 200, payload: DESCRIPTOR } );
+
+		await pairWithComputer( {
+			link: LINK,
+			deviceName: 'x'.repeat( 200 ),
+			platform: 'ios',
+			fetch: longName,
+		} );
+		await pairWithComputer( { link: LINK, deviceName: '   ', platform: 'ios', fetch: noName } );
+
+		const sentName = ( fetch: typeof longName ) =>
+			( JSON.parse( fetch.mock.calls[ 1 ][ 1 ]?.body ?? '' ) as { deviceName: string } ).deviceName;
+		expect( sentName( longName ) ).toBe( 'x'.repeat( 80 ) );
+		expect( sentName( noName ) ).toBe( 'Phone' );
+	} );
+
 	it( 'says to wait when the computer limits pairing attempts', async () => {
 		const limited = fakeComputer( { status: 200, payload: DESCRIPTOR }, { status: 429 } );
 
