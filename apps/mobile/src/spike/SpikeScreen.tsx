@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePalette } from '../theme/spike-palette';
 import { FloatingSurface } from '../ui/FloatingSurface';
 import { useSurfaceMode } from '../ui/use-surface-mode';
+import { MarkdownSample } from './MarkdownSample';
 import { SpikeIconButton } from './SpikeIconButton';
 
 const STRIPES = [ '#3858e9', '#e26f56', '#00a32a', '#dba617', '#9a69c7', '#1e1e1e' ];
@@ -26,6 +27,7 @@ export function SpikeScreen() {
 				<Text style={ [ styles.title, { color: palette.foreground } ] }>Studio Mobile spike</Text>
 				<Text style={ { color: palette.muted } }>surface: { surfaceMode }</Text>
 				<Text style={ { color: palette.muted } }>taps: { taps }</Text>
+				<MarkdownSample />
 				{ [ ...STRIPES, ...STRIPES ].map( ( color, index ) => (
 					<View key={ index } style={ [ styles.stripe, { backgroundColor: color } ] } />
 				) ) }
