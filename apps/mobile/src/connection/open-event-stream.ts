@@ -13,6 +13,9 @@ export async function openEventStream(
 ): Promise< void > {
 	const response = await streamingFetch( `${ connection.baseUrl }/api/events`, {
 		headers: { Accept: 'text/event-stream', Authorization: `Bearer ${ connection.token }` },
+		// The computer never redirects this request. A redirect would carry the
+		// token to an address the phone did not check.
+		redirect: 'error',
 		signal: stream.signal,
 	} );
 	if ( response.status === 401 ) {
