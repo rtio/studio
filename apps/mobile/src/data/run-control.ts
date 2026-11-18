@@ -22,6 +22,8 @@ export interface RunControlParts {
 	// Sends a request to the paired computer. Rejects when the computer cannot
 	// be reached or refuses.
 	post: ( path: string, body?: unknown ) => Promise< unknown >;
+	// Whether the link to the computer is live. Queued prompts wait for it.
+	isLive: () => boolean;
 	// A random UUID. The computer names the turn with it, and keeps the prompt
 	// off the agent's command line when there is one.
 	newTurnId: () => string;
@@ -143,8 +145,12 @@ export function createRunControl( parts: RunControlParts ): RunControl {
 	}
 
 	// Sends the first queued prompt of an idle chat. Called after the events
-	// that can make a chat idle have been handled.
+	// that can make a chat idle have been handled, and when the stream opens.
+	// While the link is down the queue waits: sending would only fail and drop it.
 	function drain( chatId: string ) {
+		if ( ! parts.isLive() ) {
+			return;
+		}
 		const state = stateOf( chatId );
 		const next = state.phase === 'idle' ? state.queuedPrompts[ 0 ] : undefined;
 		if ( ! next ) {

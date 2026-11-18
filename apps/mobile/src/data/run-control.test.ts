@@ -12,12 +12,14 @@ interface Request {
 }
 
 function setup() {
+	let live = true;
 	const requests: Request[] = [];
 	const shown: string[] = [];
 	const dropped: string[] = [];
 	const control = createRunControl( {
 		post: ( path, body ) =>
 			new Promise( ( resolve, reject ) => requests.push( { path, body, resolve, reject } ) ),
+		isLive: () => live,
 		newTurnId: () => 'turn-1',
 		now: () => 1000,
 		showPrompt: ( _chatId, text ) => {
@@ -29,7 +31,10 @@ function setup() {
 	const state = ( chatId = 'chat-1' ) => control.store.getState()[ chatId ] ?? initialAgentRunState;
 	const handle = ( type: string, fields: Partial< ChatEvent > = {} ) =>
 		control.handle( 'chat-1', { runId: 'run-1', type, ...fields } );
-	return { control, requests, shown, dropped, state, handle };
+	const setLive = ( next: boolean ) => {
+		live = next;
+	};
+	return { control, requests, shown, dropped, state, handle, setLive };
 }
 
 // Lets promise callbacks and queued sends run.
@@ -93,6 +98,24 @@ describe( 'createRunControl', () => {
 
 		expect( requests[ 0 ].body ).toMatchObject( { prompt: 'Then add a menu' } );
 		expect( state().queuedPrompts ).toEqual( [] );
+	} );
+
+	it( 'keeps the queue while the link is down, and sends it when the stream opens again', async () => {
+		const { control, requests, state, handle, setLive } = setup();
+		handle( 'run.started' );
+		await control.send( 'chat-1', 'Then add a menu' );
+
+		setLive( false );
+		handle( 'run.exited' );
+		await settle();
+		expect( requests ).toHaveLength( 0 );
+		expect( state().queuedPrompts ).toHaveLength( 1 );
+
+		setLive( true );
+		control.beginHydrate();
+		control.hydrate( [] );
+		await settle();
+		expect( requests[ 0 ].body ).toMatchObject( { prompt: 'Then add a menu' } );
 	} );
 
 	it( 'drops the queue and says so when a queued prompt is refused', async () => {

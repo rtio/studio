@@ -52,6 +52,7 @@ export const runControl = createRunControl( {
 		}
 		return createConnectionClient( live.connection ).post( path, body );
 	},
+	isLive: () => live !== null && liveStatusStore.get() === 'live',
 	newTurnId: () => uuid.v4(),
 	now: Date.now,
 	showPrompt: ( chatId, text ) => openChat.showPrompt( chatId, text ),
