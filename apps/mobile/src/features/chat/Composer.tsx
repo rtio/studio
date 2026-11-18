@@ -58,8 +58,10 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 	const state = useRunState( chatId );
 	const notice = useRunNotice( chatId );
 	const [ text, setText ] = useState( '' );
-	const [ sending, setSending ] = useState( false );
+	// The chat a send on its way belongs to; undefined when none is.
+	const [ sendingIn, setSendingIn ] = useState< string | null | undefined >( undefined );
 	const [ failed, setFailed ] = useState( false );
+	const sending = sendingIn !== undefined && sendingIn === chatId;
 	const armed = useArmedQuestion( chatId );
 	const target = answerTarget( state, armed );
 	const trimmed = text.trim();
@@ -71,17 +73,23 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 	const stopping = action === 'stop' || action === 'force-stop';
 	// The chat open now, for a send that ends after the person moved on.
 	const openChatId = useRef( chatId );
-	// A send from the empty screen opens the chat it makes.
-	const sendingToNewChat = useRef( false );
+	// A send from the empty screen opens the chat it makes: the next chat to
+	// open is that chat.
+	const awaitingNewChat = useRef( false );
+	const madeChatId = useRef< string | null >( null );
 
-	// A draft belongs to its chat, except when the chat is the one a send from
-	// the empty screen just made.
+	// A draft belongs to its chat, except in the chat a send from the empty
+	// screen just made.
 	useEffect( () => {
 		openChatId.current = chatId;
-		if ( ! sendingToNewChat.current ) {
-			setText( '' );
-			setFailed( false );
+		if ( awaitingNewChat.current ) {
+			awaitingNewChat.current = false;
+			madeChatId.current = chatId;
+			setSendingIn( chatId );
+			return;
 		}
+		setText( '' );
+		setFailed( false );
 	}, [ chatId ] );
 
 	// "Other" belongs to its batch of questions: once that is gone, the
@@ -94,23 +102,27 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 
 	async function send() {
 		const from = chatId;
-		sendingToNewChat.current = from === null;
+		awaitingNewChat.current = from === null;
+		madeChatId.current = null;
+		// The chat this send ends in: where it started, or the chat it made.
+		const own = ( id: string | null | undefined ) =>
+			id === from || ( from === null && id !== null && id === madeChatId.current );
 		setFailed( false );
 		// Cleared before the request, and put back if it fails.
 		setText( '' );
-		setSending( true );
+		setSendingIn( from );
 		try {
 			await onSend( trimmed );
 		} catch {
 			// Only where it was typed: the person may have opened another chat
 			// meanwhile. Text typed in the meantime wins.
-			if ( from === null || openChatId.current === from ) {
+			if ( own( openChatId.current ) ) {
 				setText( ( current ) => current || trimmed );
 				setFailed( true );
 			}
 		} finally {
-			setSending( false );
-			sendingToNewChat.current = false;
+			awaitingNewChat.current = false;
+			setSendingIn( ( current ) => ( own( current ) ? undefined : current ) );
 		}
 	}
 
