@@ -158,10 +158,12 @@ export function Composer( { chatId, draftId, onSend, offline, blocked }: Compose
 		message = blocked;
 	} else if ( failed ) {
 		message = __( 'Your message was not sent. Try again.' );
-	} else if ( stuck ) {
-		message = __( 'Not responding to Stop. Force stop ends the agent on your computer.' );
 	} else if ( notice ) {
+		// A Stop that failed says so, also after the run looked stuck.
 		message = noticeText( notice );
+	} else if ( stuck && ! offline ) {
+		// Offline, the line above the composer says why, and Force stop is off.
+		message = __( 'Not responding to Stop. Force stop ends the agent on your computer.' );
 	}
 
 	return (
