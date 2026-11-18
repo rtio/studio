@@ -23,19 +23,28 @@ describe( 'createHapticMoments', () => {
 		).toEqual( [ null, 'needs-answer', null, null, 'finished', null ] );
 	} );
 
-	it( 'is felt as a failure when the run of a failed turn exits', () => {
+	it( 'is felt as a failure when a turn fails, once, whatever comes after', () => {
 		expect(
 			feel( [
 				[ 'turn.completed', 'error' ],
 				[ 'run.exited', 'success' ],
 			] )
-		).toEqual( [ null, 'failed' ] );
+		).toEqual( [ 'failed', null ] );
 		expect(
 			feel( [
 				[ 'turn.completed', 'max_turns' ],
+				[ 'run.exited', 'error' ],
+			] )
+		).toEqual( [ 'failed', null ] );
+		// The person stops a process that lingers after its turn failed.
+		expect(
+			feel( [
+				[ 'turn.completed', 'error' ],
+				[ 'run.interrupting' ],
+				[ 'run.interrupted' ],
 				[ 'run.exited', 'success' ],
 			] )
-		).toEqual( [ null, 'failed' ] );
+		).toEqual( [ 'failed', null, null, null ] );
 	} );
 
 	it( 'is felt as a failure when a run exits with an error before its turn ended', () => {
@@ -50,18 +59,24 @@ describe( 'createHapticMoments', () => {
 				[ 'run.exited', 'error' ],
 			] )
 		).toEqual( [ null, 'failed' ] );
+		// A turn that ended well was felt then.
+		expect(
+			feel( [
+				[ 'turn.completed', 'success' ],
+				[ 'run.exited', 'error' ],
+			] )
+		).toEqual( [ 'finished', null ] );
 	} );
 
-	it( 'is not felt when a stopped run ends, whichever stop event arrived', () => {
-		const stopped: Step[] = [
-			[ 'run.interrupting' ],
-			[ 'turn.completed', 'error' ],
-			[ 'run.interrupted' ],
-			[ 'run.exited', 'error' ],
-		];
-		expect( feel( stopped ) ).toEqual( [ null, null, null, null ] );
-		// A reconnect lost `run.interrupting`.
-		expect( feel( stopped.slice( 1 ) ) ).toEqual( [ null, null, null ] );
+	it( 'is not felt when a run the computer is stopping ends', () => {
+		expect(
+			feel( [
+				[ 'run.interrupting' ],
+				[ 'turn.completed', 'error' ],
+				[ 'run.interrupted' ],
+				[ 'run.exited', 'error' ],
+			] )
+		).toEqual( [ null, null, null, null ] );
 		// The agent was killed before its turn ended.
 		expect( feel( [ [ 'run.interrupted' ], [ 'run.exited', 'error' ] ] ) ).toEqual( [
 			null,
