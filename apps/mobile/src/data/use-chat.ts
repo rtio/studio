@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { createConnectionClient } from '../connection/connection';
 import { createChatReader } from './chat-read';
 import { NOTHING_LIVE, visibleEntries } from './chat-reply';
-import { chatRows } from './chat-rows';
+import { chatRows, chatRun } from './chat-rows';
 import { activityStore, liveStatusStore, openChat } from './live-connection';
 import { chatKey } from './query-keys';
 import type { LivePrompt } from './chat-reply';
@@ -54,7 +54,7 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 	const live = state.chatId === chatId ? state.live : NOTHING_LIVE;
 	const prompts = state.chatId === chatId ? state.prompts : NO_PROMPTS;
 	const activity = useSyncExternalStore( activityStore.subscribe, activityStore.get );
-	const running = activity[ chatId ] !== undefined;
+	const { running, startedAt } = chatRun( activity, chatId );
 	const [ expandedTurns, setExpandedTurns ] = useState< ReadonlySet< string > >( () => new Set() );
 
 	const rows = useMemo( () => {
@@ -62,11 +62,8 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 			return [];
 		}
 		const entries = visibleEntries( data?.entries ?? [], data?.readAt ?? 0, live.replies, prompts );
-		return chatRows(
-			entriesToTranscriptItems( entries, { running, startedAt: null } ),
-			expandedTurns
-		);
-	}, [ data, live.replies, prompts, running, expandedTurns ] );
+		return chatRows( entriesToTranscriptItems( entries, { running, startedAt } ), expandedTurns );
+	}, [ data, live.replies, prompts, running, startedAt, expandedTurns ] );
 
 	const toggleTurn = useCallback( ( key: string ) => {
 		setExpandedTurns( ( current ) => {

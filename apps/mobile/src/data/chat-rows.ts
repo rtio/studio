@@ -11,6 +11,7 @@ import {
 } from '@studio/agent/protocol/errors';
 import { getToolDisplay } from '@studio/agent/protocol/transcript/tool-display';
 import { __ } from '@wordpress/i18n';
+import type { ActivityMap } from './run-activity';
 import type { StudioChatArtifactWidgetDraft } from '@studio/agent/protocol/chat-artifacts';
 import type {
 	AgentQuestionRenderItem,
@@ -29,6 +30,9 @@ export type ChatRow =
 			kind: 'turn';
 			key: string;
 			status: TurnActivity[ 'status' ];
+			// When the turn started, in milliseconds: the run's start, else the
+			// prompt's time.
+			startedAt: number | null;
 			steps: number;
 			collapsible: boolean;
 			expanded: boolean;
@@ -38,6 +42,17 @@ export type ChatRow =
 	| { kind: 'note'; key: string; text: string; tone: 'muted' | 'error' };
 
 type InnerItem = TurnActivity[ 'items' ][ number ];
+
+// What the transcript needs of a chat's run: whether one is going, and when it
+// started by the computer's clock, if the phone knows. The drawer shows the
+// same start.
+export function chatRun(
+	activity: ActivityMap,
+	chatId: string
+): { running: boolean; startedAt: number | null } {
+	const run = activity[ chatId ];
+	return { running: run !== undefined, startedAt: run?.since ?? null };
+}
 
 function toolState( item: Extract< InnerItem, { kind: 'tool-use' } > ): ToolState {
 	if ( item.result ) {
@@ -145,6 +160,7 @@ export function chatRows(
 				kind: 'turn',
 				key: item.key,
 				status: item.status,
+				startedAt: item.startedAt,
 				steps,
 				collapsible,
 				expanded,

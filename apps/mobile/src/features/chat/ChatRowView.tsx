@@ -20,6 +20,8 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { runControl } from '../../data/live-connection';
 import { useRunState, useSentAnswers } from '../../data/use-run';
+import { formatElapsed } from '../../lib/elapsed';
+import { useNow } from '../../lib/use-now';
 import { space } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
 import { Button } from '../../ui/Button';
@@ -86,11 +88,20 @@ function UserBubble( { text }: { text: string } ) {
 	);
 }
 
-function turnText( status: Extract< ChatRow, { kind: 'turn' } >[ 'status' ], steps: number ) {
+function turnText(
+	status: Extract< ChatRow, { kind: 'turn' } >[ 'status' ],
+	steps: number,
+	elapsed: string | null
+) {
 	let text: string;
 	switch ( status ) {
 		case 'running':
-			text = __( 'Working' );
+			text = elapsed
+				? /* translators: %s: how long the agent has worked, such as 0:42. */ sprintf(
+						__( 'Working for %s' ),
+						elapsed
+				  )
+				: __( 'Working' );
 			break;
 		case 'interrupted':
 			text = __( 'Stopped' );
@@ -117,6 +128,10 @@ function TurnLine( {
 } ) {
 	const { colors } = useTheme();
 	const Chevron = row.expanded ? ChevronDown : ChevronRight;
+	const running = row.status === 'running';
+	// The time of a running turn ticks.
+	const now = useNow( running );
+	const elapsed = running && row.startedAt !== null ? formatElapsed( now - row.startedAt ) : null;
 	const content = (
 		<>
 			{ row.status === 'running' ? (
@@ -125,7 +140,7 @@ function TurnLine( {
 				row.collapsible && <Chevron size={ ICON_SIZE } color={ colors.mutedForeground } />
 			) }
 			<Text variant="label" color={ row.status === 'error' ? 'destructive' : 'mutedForeground' }>
-				{ turnText( row.status, row.steps ) }
+				{ turnText( row.status, row.steps, elapsed ) }
 			</Text>
 		</>
 	);

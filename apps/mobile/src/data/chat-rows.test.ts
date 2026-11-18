@@ -9,7 +9,7 @@ import {
 } from '@studio/agent/protocol/transcript/tests/session-entries';
 import { entriesToTranscriptItems } from '@studio/agent/protocol/transcript/transcript-items';
 import { describe, expect, it } from 'vitest';
-import { chatRows, turnErrorText } from './chat-rows';
+import { chatRows, chatRun, turnErrorText } from './chat-rows';
 import type { SessionEntry } from './remote-schemas';
 
 const NOTHING_OPEN = new Set< string >();
@@ -76,6 +76,27 @@ describe( 'chatRows', () => {
 		expect( rows.map( ( row ) => row.kind ) ).toEqual( [ 'user', 'turn', 'tool' ] );
 		expect( rows[ 1 ] ).toMatchObject( { status: 'running', collapsible: false, expanded: true } );
 		expect( rows[ 2 ] ).toMatchObject( { state: 'running' } );
+	} );
+
+	it( "gives a running turn its run's start, and else the prompt's time", () => {
+		const entries = [
+			promptEntry( 'Add a header' ),
+			assistantToolCallEntry( 'Edit', { path: 'style.css' } ),
+		];
+		const activity = { c1: { runId: 'run-1', activity: 'working' as const, since: 5000 } };
+		const turnOf = ( run: { running: boolean; startedAt: number | null } ) =>
+			chatRows( entriesToTranscriptItems( entries, run ), NOTHING_OPEN )[ 1 ];
+
+		expect( turnOf( chatRun( activity, 'c1' ) ) ).toMatchObject( {
+			kind: 'turn',
+			status: 'running',
+			startedAt: 5000,
+		} );
+		// The run's start is not known: the prompt's time.
+		expect(
+			turnOf( chatRun( { c1: { runId: 'run-1', activity: 'working' } }, 'c1' ) )
+		).toMatchObject( { startedAt: Date.parse( entries[ 0 ].timestamp ) } );
+		expect( chatRun( activity, 'c2' ) ).toEqual( { running: false, startedAt: null } );
 	} );
 
 	it( 'marks a step that never got its result as stopped', () => {
