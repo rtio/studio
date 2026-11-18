@@ -45,14 +45,15 @@ export function createDrafts() {
 		},
 		// Take it when a send begins, and give it to `fail`.
 		generation: () => generation,
-		// A send of `text`, begun at `since`, failed. Text typed since then wins.
-		// A send begun before the drafts were cleared, for another computer,
-		// puts nothing back.
+		// A send of `text`, begun at `since`, failed. Text typed since then wins,
+		// unless it is only spaces. A send begun before the drafts were cleared,
+		// for another computer, puts nothing back.
 		fail( key: string, text: string, since: number ) {
 			if ( since !== generation ) {
 				return;
 			}
-			put( key, { text: get( key ).text || text, failed: true } );
+			const typed = get( key ).text;
+			put( key, { text: typed.trim() ? typed : text, failed: true } );
 		},
 		// The person sends again.
 		clearFailure( key: string ) {

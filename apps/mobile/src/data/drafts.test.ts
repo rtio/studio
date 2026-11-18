@@ -25,6 +25,11 @@ describe( 'createDrafts', () => {
 
 		drafts.clearFailure( 'chat-1' );
 		expect( drafts.get( 'chat-1' ) ).toEqual( { text: 'Add a menu', failed: false } );
+
+		// Only spaces typed since: the text that was not sent comes back.
+		drafts.set( 'chat-3', ' \n' );
+		drafts.fail( 'chat-3', 'Add a map', drafts.generation() );
+		expect( drafts.get( 'chat-3' ) ).toEqual( { text: 'Add a map', failed: true } );
 	} );
 
 	it( 'drops an empty draft, and forgets every draft for another computer', () => {
