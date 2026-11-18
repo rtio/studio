@@ -51,6 +51,8 @@ function parseQuestions( payload: unknown ): PendingQuestion[] {
 const activeRunSchema = z.object( {
 	runId: z.string(),
 	sessionId: z.string(),
+	// When the run started, in milliseconds, by the computer's clock.
+	startedAt: z.number().optional(),
 	pendingQuestions: z.array( z.unknown() ).transform( parseQuestions ).optional(),
 } );
 export type ActiveRun = z.infer< typeof activeRunSchema >;

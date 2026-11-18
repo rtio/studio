@@ -105,3 +105,38 @@ describe( 'applyAgentEvent', () => {
 		expect( applyAgentEvent( idle, event( 'message', { detail: 'message_start' } ) ) ).toBe( idle );
 	} );
 } );
+
+describe( 'run start times', () => {
+	it( 'keeps the start the computer listed, and the start of a run seen live', () => {
+		const listed = activityFromActiveRuns( [
+			{ runId: 'run-1', sessionId: 'chat-1', startedAt: 1000, pendingQuestions: [] },
+		] );
+		expect( listed[ 'chat-1' ].since ).toBe( 1000 );
+
+		// A late copy of the run's start does not move it.
+		const again = applyAgentEvent( listed, event( 'run.started', { at: 5000 } ) );
+		expect( again[ 'chat-1' ].since ).toBe( 1000 );
+
+		const live = applyAgentEvent(
+			{},
+			event( 'run.started', { sessionId: 'chat-2', runId: 'run-2', at: 2000 } )
+		);
+		expect( live[ 'chat-2' ].since ).toBe( 2000 );
+	} );
+
+	it( 'keeps the start while the run asks and goes on', () => {
+		const started = applyAgentEvent( {}, event( 'run.started', { at: 2000 } ) );
+		const asked = applyAgentEvent( started, event( 'question.asked', { at: 9000 } ) );
+		const goingOn = applyAgentEvent(
+			asked,
+			event( 'message', { detail: 'message_start', at: 9500 } )
+		);
+
+		expect( asked[ 'chat-1' ] ).toEqual( {
+			runId: 'run-1',
+			activity: 'needs-answer',
+			since: 2000,
+		} );
+		expect( goingOn[ 'chat-1' ] ).toEqual( { runId: 'run-1', activity: 'working', since: 2000 } );
+	} );
+} );

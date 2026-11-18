@@ -8,6 +8,8 @@ export interface ChatRow {
 	siteId: string | null;
 	siteName: string | null;
 	activity: ChatActivity | null;
+	// When the chat's run started, by the computer's clock, if it has one.
+	since?: number;
 	// The chat acts on the live site, not on the local one.
 	live: boolean;
 }
@@ -38,6 +40,7 @@ export function listChats(
 			siteId: session.ownerSiteId ?? null,
 			siteName: session.ownerSiteName ?? null,
 			activity: activity[ session.id ]?.activity ?? null,
+			since: activity[ session.id ]?.since,
 			live: session.activeEnvironment === 'live',
 		} ) );
 }

@@ -105,7 +105,14 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 		}
 		if ( message.channel === 'agent' ) {
 			const { sessionId, runId, event } = message.payload;
-			const info = { sessionId, runId, type: event.type, detail: event.inner?.type };
+			const at = event.timestamp ? Date.parse( event.timestamp ) : NaN;
+			const info: AgentEventInfo = {
+				sessionId,
+				runId,
+				type: event.type,
+				detail: event.inner?.type,
+				at: Number.isNaN( at ) ? undefined : at,
+			};
 			const chatEvent: ChatEvent = {
 				runId,
 				type: event.type,
