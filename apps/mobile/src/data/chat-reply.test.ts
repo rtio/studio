@@ -1,8 +1,16 @@
 import { promptEntry } from '@studio/agent/protocol/transcript/tests/session-entries';
 import { entriesToTranscriptItems } from '@studio/agent/protocol/transcript/transcript-items';
 import { describe, expect, it } from 'vitest';
-import { applyChatEvent, endReply, NOTHING_LIVE, visibleEntries, withoutRead } from './chat-reply';
-import type { ChatEvent, ChatLive } from './chat-reply';
+import {
+	applyChatEvent,
+	endReply,
+	NOTHING_LIVE,
+	promptsSaved,
+	promptsWithoutRead,
+	visibleEntries,
+	withoutRead,
+} from './chat-reply';
+import type { ChatEvent, ChatLive, LivePrompt } from './chat-reply';
 
 function assistant( text: string, toolCall = false ) {
 	return {
@@ -229,5 +237,41 @@ describe( 'applyChatEvent and visibleEntries', () => {
 
 		expect( endReply( live, 5 ).replies[ 0 ] ).toMatchObject( { endedAt: 5 } );
 		expect( endReply( NOTHING_LIVE, 5 ) ).toBe( NOTHING_LIVE );
+	} );
+} );
+
+describe( 'sent prompts', () => {
+	const prompt = ( sentAt: number, savedAt: number | null = null ): LivePrompt => ( {
+		key: String( sentAt ),
+		text: `Prompt ${ sentAt }`,
+		timestamp: '2026-11-17T10:00:03.000Z',
+		sentAt,
+		savedAt,
+	} );
+
+	it( 'shows a prompt after the replies that ended before it, and before the reply being written', () => {
+		const { live } = play( [ update( 'First' ), end( assistant( 'First reply.' ) ) ] );
+		const writing = applyChatEvent( live, update( 'Second' ), 4 ).live;
+
+		const entries = visibleEntries( saved, 0, writing.replies, [ prompt( 3 ) ] );
+		const shown = JSON.stringify( entries );
+
+		expect( shown.indexOf( 'First reply.' ) ).toBeLessThan( shown.indexOf( 'Prompt 3' ) );
+		expect( shown.indexOf( 'Prompt 3' ) ).toBeLessThan( shown.indexOf( 'Second' ) );
+		expect( entries.at( -2 ) ).toMatchObject( {
+			type: 'custom',
+			customType: 'studio.user_prompt',
+			data: { text: 'Prompt 3', source: 'prompt' },
+		} );
+	} );
+
+	it( 'keeps a prompt until a read that started after it was saved', () => {
+		const prompts = promptsSaved( [ prompt( 1 ) ], 5 );
+
+		expect( prompts[ 0 ].savedAt ).toBe( 5 );
+		expect( promptsSaved( prompts, 7 ) ).toBe( prompts );
+		expect( promptsWithoutRead( prompts, 4 ) ).toBe( prompts );
+		expect( promptsWithoutRead( prompts, 5 ) ).toEqual( [] );
+		expect( visibleEntries( saved, 5, [], prompts ) ).toBe( saved );
 	} );
 } );

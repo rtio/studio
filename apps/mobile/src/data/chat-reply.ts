@@ -44,6 +44,27 @@ export interface ChatLive {
 
 export const NOTHING_LIVE: ChatLive = { runId: null, replies: [], error: null };
 
+// A prompt the phone sent, shown until a read of the chat has it. The computer
+// saves the prompt when the run starts, before the agent writes anything.
+// `savedAt` is the mark of the first event after which the chat changed on the
+// computer: a read that started then or later has the prompt.
+export interface LivePrompt {
+	key: string;
+	text: string;
+	timestamp: string;
+	sentAt: number;
+	savedAt: number | null;
+}
+
+// Notes the mark at which the prompts not saved yet are saved.
+export function promptsSaved( prompts: LivePrompt[], mark: number ): LivePrompt[] {
+	return prompts.some( ( prompt ) => prompt.savedAt === null )
+		? prompts.map( ( prompt ) =>
+				prompt.savedAt === null ? { ...prompt, savedAt: mark } : prompt
+		  )
+		: prompts;
+}
+
 function isRecord( value: unknown ): value is Record< string, unknown > {
 	return typeof value === 'object' && value !== null;
 }
@@ -156,6 +177,16 @@ function isCovered( reply: LiveReply, readAt: number ): boolean {
 	return reply.endedAt !== null && readAt >= reply.endedAt;
 }
 
+function isPromptCovered( prompt: LivePrompt, readAt: number ): boolean {
+	return prompt.savedAt !== null && readAt >= prompt.savedAt;
+}
+
+// Drops the prompts that a read which started at `readAt` has.
+export function promptsWithoutRead( prompts: LivePrompt[], readAt: number ): LivePrompt[] {
+	const left = prompts.filter( ( prompt ) => ! isPromptCovered( prompt, readAt ) );
+	return left.length === prompts.length ? prompts : left;
+}
+
 // Drops the replies that a read which started at `readAt` has.
 export function withoutRead( live: ChatLive, readAt: number ): ChatLive {
 	const replies = live.replies.filter( ( reply ) => ! isCovered( reply, readAt ) );
@@ -163,35 +194,57 @@ export function withoutRead( live: ChatLive, readAt: number ): ChatLive {
 }
 
 // The chat as the phone shows it: what the computer saved, read at `readAt`,
-// and the replies the stream has shown since, until a read has them.
+// and the replies and prompts the phone has shown since, until a read has
+// them. A prompt goes after the replies that ended before it was sent.
 export function visibleEntries(
 	saved: SessionEntry[],
 	readAt: number,
-	replies: LiveReply[]
+	replies: LiveReply[],
+	prompts: LivePrompt[] = []
 ): SessionEntry[] {
-	const shown = replies.filter( ( reply ) => ! isCovered( reply, readAt ) );
-	if ( shown.length === 0 ) {
+	const shownReplies = replies.filter( ( reply ) => ! isCovered( reply, readAt ) );
+	const shownPrompts = prompts.filter( ( prompt ) => ! isPromptCovered( prompt, readAt ) );
+	if ( shownReplies.length === 0 && shownPrompts.length === 0 ) {
 		return saved;
 	}
-	return [
-		...saved,
-		...shown.map( ( reply, index ) => {
+	const live = [
+		...shownReplies.map( ( reply, index ) => {
 			const entryId = `live-${ reply.runId }-${ index }`;
+			// Only the reply being written has no end, and it is the last.
+			const at = reply.endedAt ?? Number.MAX_SAFE_INTEGER;
 			if ( reply.endedAt === null ) {
-				return streamingReplyEntry( {
-					entryId,
-					timestamp: reply.timestamp,
-					message: reply.message,
-				} );
+				return {
+					at,
+					entry: streamingReplyEntry( {
+						entryId,
+						timestamp: reply.timestamp,
+						message: reply.message,
+					} ),
+				};
 			}
 			// Complete, but not read yet: shown as the saved message will be.
-			return {
+			const entry = {
 				type: 'message',
 				id: entryId,
 				parentId: null,
 				timestamp: reply.timestamp,
 				message: reply.message,
 			} as unknown as SessionEntry;
+			return { at, entry };
+		} ),
+		...shownPrompts.map( ( prompt ) => {
+			// As the computer saves it.
+			const entry = {
+				type: 'custom',
+				id: `prompt-${ prompt.key }`,
+				parentId: null,
+				timestamp: prompt.timestamp,
+				customType: 'studio.user_prompt',
+				data: { text: prompt.text, source: 'prompt' },
+			} as unknown as SessionEntry;
+			return { at: prompt.sentAt, entry };
 		} ),
 	];
+	live.sort( ( a, b ) => a.at - b.at );
+	return [ ...saved, ...live.map( ( item ) => item.entry ) ];
 }

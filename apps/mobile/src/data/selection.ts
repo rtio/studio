@@ -9,6 +9,7 @@ export const selectSite = selectedSiteStore.set;
 export const selectedSiteId = selectedSiteStore.get;
 export const selectChat = selectedChatStore.set;
 export const selectedChatId = selectedChatStore.get;
+export const subscribeSelectedChat = selectedChatStore.subscribe;
 
 export function resetSelection(): void {
 	selectedSiteStore.set( null );

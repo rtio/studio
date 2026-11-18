@@ -1,13 +1,22 @@
 import { createValueStore } from '../lib/value-store';
-import { applyChatEvent, endReply, NOTHING_LIVE, withoutRead } from './chat-reply';
-import type { ChatEvent, ChatLive } from './chat-reply';
+import {
+	applyChatEvent,
+	endReply,
+	NOTHING_LIVE,
+	promptsSaved,
+	promptsWithoutRead,
+	withoutRead,
+} from './chat-reply';
+import type { ChatEvent, ChatLive, LivePrompt } from './chat-reply';
 
 export interface OpenChatState {
 	chatId: string | null;
 	live: ChatLive;
+	// The prompts the phone sent that no read has yet, oldest first.
+	prompts: LivePrompt[];
 }
 
-const NO_CHAT: OpenChatState = { chatId: null, live: NOTHING_LIVE };
+const NO_CHAT: OpenChatState = { chatId: null, live: NOTHING_LIVE, prompts: [] };
 
 // Text arrives many times a second while the agent writes. The chat draws it
 // at most this often.
@@ -32,6 +41,10 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 	let wanted = 0;
 	let drawTimer: ReturnType< typeof setTimeout > | null = null;
 	let readTimer: ReturnType< typeof setTimeout > | null = null;
+	let promptKeys = 0;
+	// The runs whose end this chat saw. A stopped run sends `run.interrupted`
+	// and then `run.exited`; a prompt sent between the two is not saved yet.
+	let endedRuns = new Set< string >();
 
 	function drawNow() {
 		if ( drawTimer ) {
@@ -75,7 +88,8 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 	function reset( chatId: string | null ) {
 		cancelRead();
 		wanted = 0;
-		latest = { chatId, live: NOTHING_LIVE };
+		endedRuns = new Set();
+		latest = { chatId, live: NOTHING_LIVE, prompts: [] };
 		drawNow();
 	}
 
@@ -97,8 +111,16 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 			}
 			marks += 1;
 			const step = applyChatEvent( latest.live, event, marks );
-			if ( step.live !== latest.live ) {
-				latest = { chatId, live: step.live };
+			const ending = event.type === 'run.exited' || event.type === 'run.interrupted';
+			const lateEnd = ending && endedRuns.has( event.runId );
+			if ( ending ) {
+				endedRuns.add( event.runId );
+			}
+			// The chat changed on the computer after the prompt was saved.
+			const prompts =
+				step.read && ! lateEnd ? promptsSaved( latest.prompts, marks ) : latest.prompts;
+			if ( step.live !== latest.live || prompts !== latest.prompts ) {
+				latest = { chatId, live: step.live, prompts };
 			}
 			if ( step.read ) {
 				drawNow();
@@ -115,8 +137,9 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 				return;
 			}
 			const live = withoutRead( latest.live, readAt );
-			if ( live !== latest.live ) {
-				latest = { chatId, live };
+			const prompts = promptsWithoutRead( latest.prompts, readAt );
+			if ( live !== latest.live || prompts !== latest.prompts ) {
+				latest = { chatId, live, prompts };
 				drawNow();
 			}
 			if ( readAt < wanted ) {
@@ -132,9 +155,45 @@ export function createOpenChat( read: ( chatId: string ) => void ) {
 				return;
 			}
 			marks += 1;
-			latest = { chatId, live: endReply( latest.live, marks ) };
+			latest = {
+				chatId,
+				live: endReply( latest.live, marks ),
+				prompts: promptsSaved( latest.prompts, marks ),
+			};
 			drawNow();
 			readNow( chatId );
+		},
+
+		// Shows a prompt sent to the open chat. Returns the key that takes it away.
+		showPrompt( chatId: string, text: string ): string {
+			promptKeys += 1;
+			const key = String( promptKeys );
+			if ( latest.chatId !== chatId ) {
+				return key;
+			}
+			marks += 1;
+			const prompt = {
+				key,
+				text,
+				timestamp: new Date().toISOString(),
+				sentAt: marks,
+				savedAt: null,
+			};
+			latest = { ...latest, prompts: [ ...latest.prompts, prompt ] };
+			drawNow();
+			return key;
+		},
+
+		// The prompt was not sent after all.
+		dropPrompt( chatId: string, key: string ) {
+			if ( latest.chatId !== chatId ) {
+				return;
+			}
+			const prompts = latest.prompts.filter( ( prompt ) => prompt.key !== key );
+			if ( prompts.length !== latest.prompts.length ) {
+				latest = { ...latest, prompts };
+				drawNow();
+			}
 		},
 
 		clear() {

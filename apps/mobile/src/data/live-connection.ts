@@ -10,7 +10,13 @@ import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
 import { chatKey, sessionsKey, sitesKey } from './query-keys';
 import { parseActiveRuns } from './remote-schemas';
-import { resetSelection, selectedChatId, selectedSiteId, selectSite } from './selection';
+import {
+	resetSelection,
+	selectedChatId,
+	selectedSiteId,
+	selectSite,
+	subscribeSelectedChat,
+} from './selection';
 import type { LiveStatus } from './live-status';
 import type { Site } from './remote-schemas';
 import type { ActivityMap } from './run-activity';
@@ -30,6 +36,17 @@ let live: {
 export const openChat = createOpenChat( ( chatId ) => {
 	if ( live ) {
 		void requestChatRead( queryClient, chatKey( live.connection, chatId ) );
+	}
+} );
+
+// The open chat changes as soon as the person chooses a chat, before the
+// screen draws it, so a prompt sent to a chat just created shows in it.
+subscribeSelectedChat( () => {
+	const chatId = selectedChatId();
+	if ( chatId ) {
+		openChat.select( chatId );
+	} else {
+		openChat.clear();
 	}
 } );
 

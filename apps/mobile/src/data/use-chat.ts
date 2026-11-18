@@ -7,8 +7,11 @@ import { NOTHING_LIVE, visibleEntries } from './chat-reply';
 import { chatRows } from './chat-rows';
 import { activityStore, liveStatusStore, openChat } from './live-connection';
 import { chatKey } from './query-keys';
+import type { LivePrompt } from './chat-reply';
 import type { ChatRow } from './chat-rows';
 import type { Connection } from '../connection/connection-store';
+
+const NO_PROMPTS: LivePrompt[] = [];
 
 export interface ChatView {
 	rows: ChatRow[];
@@ -25,7 +28,8 @@ export interface ChatView {
 
 // One chat as the phone shows it. Mount it once per chat (a `key` on the
 // screen), so opening a chat always reads it again: the stream may have
-// missed its events while another chat was open.
+// missed its events while another chat was open. What the stream adds follows
+// the chosen chat (data/live-connection.ts).
 export function useChat( connection: Connection, chatId: string ): ChatView {
 	const status = useSyncExternalStore( liveStatusStore.subscribe, liveStatusStore.get );
 	const query = useQuery( {
@@ -40,10 +44,6 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 			createChatReader( createConnectionClient( connection ).get, openChat.mark )( chatId, signal ),
 	} );
 
-	useEffect( () => {
-		openChat.select( chatId );
-	}, [ chatId ] );
-
 	const { data } = query;
 	useEffect( () => {
 		if ( data ) {
@@ -53,21 +53,22 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 
 	const state = useSyncExternalStore( openChat.store.subscribe, openChat.store.get );
 	const live = state.chatId === chatId ? state.live : NOTHING_LIVE;
+	const prompts = state.chatId === chatId ? state.prompts : NO_PROMPTS;
 	const activity = useSyncExternalStore( activityStore.subscribe, activityStore.get );
 	const run = activity[ chatId ];
 	const running = run !== undefined;
 	const [ expandedTurns, setExpandedTurns ] = useState< ReadonlySet< string > >( () => new Set() );
 
 	const rows = useMemo( () => {
-		if ( ! data && live.replies.length === 0 ) {
+		if ( ! data && live.replies.length === 0 && prompts.length === 0 ) {
 			return [];
 		}
-		const entries = visibleEntries( data?.entries ?? [], data?.readAt ?? 0, live.replies );
+		const entries = visibleEntries( data?.entries ?? [], data?.readAt ?? 0, live.replies, prompts );
 		return chatRows(
 			entriesToTranscriptItems( entries, { running, startedAt: null } ),
 			expandedTurns
 		);
-	}, [ data, live.replies, running, expandedTurns ] );
+	}, [ data, live.replies, prompts, running, expandedTurns ] );
 
 	const toggleTurn = useCallback( ( key: string ) => {
 		setExpandedTurns( ( current ) => {

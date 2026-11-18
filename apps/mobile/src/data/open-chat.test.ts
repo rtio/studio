@@ -111,6 +111,7 @@ describe( 'createOpenChat', () => {
 		expect( chat.store.get() ).toEqual( {
 			chatId: 'chat-1',
 			live: { runId: null, replies: [], error: null },
+			prompts: [],
 		} );
 	} );
 
@@ -150,5 +151,45 @@ describe( 'createOpenChat', () => {
 		vi.advanceTimersByTime( 500 );
 
 		expect( read ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows a sent prompt until a read that started after the computer saved it', () => {
+		const chat = createOpenChat( vi.fn() );
+		chat.select( 'chat-1' );
+
+		chat.showPrompt( 'chat-1', 'Add a blog' );
+		expect( chat.store.get().prompts ).toMatchObject( [ { text: 'Add a blog', savedAt: null } ] );
+		const early = chat.mark();
+		chat.handle( 'chat-1', { runId: 'run-1', type: 'run.started' } );
+		chat.handle( 'chat-1', end( 'On it.' ) );
+		const after = chat.mark();
+
+		chat.settled( 'chat-1', early );
+		expect( chat.store.get().prompts ).toHaveLength( 1 );
+		chat.settled( 'chat-1', after );
+		expect( chat.store.get().prompts ).toEqual( [] );
+	} );
+
+	it( 'takes a prompt away when it was not sent, and shows none in a chat that is not open', () => {
+		const chat = createOpenChat( vi.fn() );
+		chat.select( 'chat-1' );
+
+		const key = chat.showPrompt( 'chat-1', 'Add a blog' );
+		chat.showPrompt( 'chat-2', 'Add a shop' );
+		expect( chat.store.get().prompts ).toHaveLength( 1 );
+
+		chat.dropPrompt( 'chat-1', key );
+		expect( chat.store.get().prompts ).toEqual( [] );
+	} );
+
+	it( 'keeps a prompt sent between the two end events of a stopped run', () => {
+		const chat = createOpenChat( vi.fn() );
+		chat.select( 'chat-1' );
+		chat.handle( 'chat-1', { runId: 'run-1', type: 'run.interrupted' } );
+
+		chat.showPrompt( 'chat-1', 'Try again' );
+		chat.handle( 'chat-1', { runId: 'run-1', type: 'run.exited' } );
+
+		expect( chat.store.get().prompts ).toMatchObject( [ { text: 'Try again', savedAt: null } ] );
 	} );
 } );
