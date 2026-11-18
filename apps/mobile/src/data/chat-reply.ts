@@ -1,5 +1,6 @@
 import { streamingReplyEntry } from '@studio/agent/protocol/transcript/streaming-reply';
 import type { SessionEntry } from './remote-schemas';
+import type { PendingQuestion } from '@studio/agent/protocol/transcript/run-state';
 
 // One event of a run in the open chat, cut down to what the chat needs.
 export interface ChatEvent {
@@ -12,6 +13,8 @@ export interface ChatEvent {
 	inner?: { type: string; message?: unknown };
 	// For an `error` event: its text.
 	text?: string;
+	// For a `question.asked` event: the questions.
+	questions?: PendingQuestion[];
 }
 
 // An assistant message the stream showed. `endedAt` is the mark of its

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PendingQuestion } from '@studio/agent/protocol/transcript/run-state';
 import type { entriesToTranscriptItems } from '@studio/agent/protocol/transcript/transcript-items';
 
 // A saved entry of a chat, as the shared transcript code takes it. Read from
@@ -33,10 +34,24 @@ const sessionSchema = z.object( {
 } );
 export type Session = z.infer< typeof sessionSchema >;
 
+// A question the agent asked and waits for. The computer also sends an image
+// path for an option, which the phone cannot load, and whether several options
+// may be picked, which the phone reads from the saved chat.
+const questionSchema = z.object( {
+	question: z.string(),
+	options: z
+		.array( z.object( { label: z.string(), description: z.string().catch( '' ) } ) )
+		.catch( [] ),
+} );
+
+function parseQuestions( payload: unknown ): PendingQuestion[] {
+	return parseList( questionSchema, payload );
+}
+
 const activeRunSchema = z.object( {
 	runId: z.string(),
 	sessionId: z.string(),
-	pendingQuestions: z.array( z.unknown() ).optional(),
+	pendingQuestions: z.array( z.unknown() ).transform( parseQuestions ).optional(),
 } );
 export type ActiveRun = z.infer< typeof activeRunSchema >;
 
@@ -120,12 +135,13 @@ export function parseChatEntries( payload: unknown ): SessionEntry[] | null {
 // An agent event. `message` events wrap an event of the agent library
 // (`message_update`, `message_end`, `tool_execution_end`, ...): `inner` is that
 // event's type and the message it carries. For `info` and `error`, `message`
-// is plain text, kept as `text`.
+// is plain text, kept as `text`. A `question.asked` event has its questions.
 const agentEventSchema = z
 	.object( {
 		type: z.string(),
 		timestamp: z.string().optional(),
 		message: z.unknown().optional(),
+		questions: z.unknown().optional(),
 	} )
 	.transform( ( event ) => {
 		const wrapped = event.message;
@@ -141,6 +157,7 @@ const agentEventSchema = z
 			timestamp: event.timestamp,
 			inner,
 			text: typeof wrapped === 'string' ? wrapped : undefined,
+			questions: event.questions === undefined ? undefined : parseQuestions( event.questions ),
 		};
 	} );
 

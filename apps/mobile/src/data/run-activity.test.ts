@@ -13,7 +13,11 @@ describe( 'activityFromActiveRuns', () => {
 	it( 'marks a chat with a run as working, and one with an open question as needing an answer', () => {
 		const activity = activityFromActiveRuns( [
 			{ runId: 'run-1', sessionId: 'chat-1', pendingQuestions: [] },
-			{ runId: 'run-2', sessionId: 'chat-2', pendingQuestions: [ { question: 'Which layout?' } ] },
+			{
+				runId: 'run-2',
+				sessionId: 'chat-2',
+				pendingQuestions: [ { question: 'Which layout?', options: [] } ],
+			},
 			{ runId: 'run-3', sessionId: 'chat-3' },
 		] );
 

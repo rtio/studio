@@ -110,6 +110,7 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 					timestamp: event.timestamp,
 					inner: event.inner,
 					text: event.text,
+					questions: event.questions,
 				} );
 			}
 			return;

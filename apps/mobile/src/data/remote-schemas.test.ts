@@ -81,7 +81,17 @@ describe( 'parseActiveRuns', () => {
 				sessionId: 'chat-1',
 				startedAt: 1794909600000,
 				phase: 'running',
-				pendingQuestions: [ { question: 'Which layout?', options: [] } ],
+				pendingQuestions: [
+					{
+						question: 'Which layout?',
+						options: [
+							{ label: 'Grid', description: 'Cards', image: '/Users/someone/grid.png' },
+							{ label: 'List' },
+						],
+						multiSelect: false,
+					},
+					{ options: [] },
+				],
 			},
 		];
 
@@ -89,7 +99,17 @@ describe( 'parseActiveRuns', () => {
 
 		expect( run.runId ).toBe( 'run-1' );
 		expect( run.sessionId ).toBe( 'chat-1' );
-		expect( run.pendingQuestions ).toHaveLength( 1 );
+		// The image path is dropped, a missing description is empty, and a
+		// question without its text is skipped.
+		expect( run.pendingQuestions ).toEqual( [
+			{
+				question: 'Which layout?',
+				options: [
+					{ label: 'Grid', description: 'Cards' },
+					{ label: 'List', description: '' },
+				],
+			},
+		] );
 	} );
 } );
 
@@ -207,6 +227,22 @@ describe( 'parseStreamMessage', () => {
 		} );
 		expect( parseStreamMessage( text ) ).toMatchObject( {
 			payload: { event: { type: 'error', inner: undefined, text: 'Out of credits' } },
+		} );
+	} );
+
+	it( 'reads the questions of a question.asked event', () => {
+		const data =
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"type":"question.asked","questions":[{"question":"Which layout?","options":[{"label":"Grid","description":"Cards"}],"multiSelect":true}]}}}';
+
+		expect( parseStreamMessage( data ) ).toMatchObject( {
+			payload: {
+				event: {
+					type: 'question.asked',
+					questions: [
+						{ question: 'Which layout?', options: [ { label: 'Grid', description: 'Cards' } ] },
+					],
+				},
+			},
 		} );
 	} );
 
