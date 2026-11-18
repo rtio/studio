@@ -144,7 +144,9 @@ const agentEventSchema = z
 		timestamp: z.string().optional(),
 		message: z.unknown().optional(),
 		questions: z.unknown().optional(),
-		status: z.string().optional(),
+		// Text on every event that has one today; anything else is dropped, not
+		// the event.
+		status: z.string().optional().catch( undefined ),
 	} )
 	.transform( ( event ) => {
 		const wrapped = event.message;

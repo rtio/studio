@@ -255,6 +255,15 @@ describe( 'parseStreamMessage', () => {
 		} );
 	} );
 
+	it( 'keeps an event whose status is not text, without the status', () => {
+		const data =
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"type":"run.exited","status":null}}}';
+
+		expect( parseStreamMessage( data ) ).toMatchObject( {
+			payload: { event: { type: 'run.exited', status: undefined } },
+		} );
+	} );
+
 	it( 'reads a site event with the site it is about', () => {
 		const data =
 			'{"channel":"site-event","payload":{"event":"site-updated","siteId":"s1","running":true,"site":{"id":"s1","name":"My site","running":true,"url":"http://localhost:8881"}}}';
