@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** pairing, the drawer, reading and writing a chat. The app pairs with `studio remote`, lists the computer's sites and chats, keeps them live, and shows the open chat as the agent works: its reply as it is written, its steps, its questions. It sends messages, queues them while the agent works, stops a run, answers the agent's questions and starts a new chat for a site. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone, and it has not sent a message to a real agent: only to the stand-in server below.
+**Status:** pairing, the drawer, reading and writing a chat. The app pairs with `studio remote`, lists the computer's sites and chats, keeps them live, and shows the open chat as the agent works: its reply as it is written, its steps, its questions. It sends messages, queues them while the agent works, stops a run, answers the agent's questions and starts a new chat for a site. The drawer shows which chats need the person and which are working, and a long press on a message copies, edits, sends again or shares it. It runs on the iOS Simulator, on an Android emulator and on an iPhone paired with a real Studio over Wi-Fi.
 
 ## What it needs
 
@@ -102,7 +102,18 @@ The phone follows the rules of Studio's own composer, with the same run-state re
 - Stop asks the agent to stop; a second Stop kills it. If a question is open, the phone first answers it with "stopped without an answer": the agent waits for the answer and not for the stop.
 - The answers of a batch of questions go in one request, once each question has one: the computer takes one answer per batch. A tap answers a single-choice question; a multiple-choice one takes its picks with Done. When the agent offers its own "Other", the composer takes the answer.
 - A new chat is made for the site in the header, then the first message goes to it.
-- The queue lives in memory only, and the text being typed is dropped when another chat opens. Studio on the computer has its own queue; the two do not see each other.
+- The queue lives in memory only. Studio on the computer has its own queue; the two do not see each other.
+- Each chat keeps its own draft, in memory only; the screen with no chat open keeps one per site. A send that fails puts its text back in the chat it was for, unless something new was typed there since. The drafts go when the phone forgets the computer.
+- When Stop gets no answer for 5 seconds, the composer says so and offers Force stop.
+
+## Around the chat
+
+- The drawer puts chats with a question waiting under "Needs you" and running chats under "Working", with the time since the run started; the rest follow under "Chats". The running turn in a chat says "Working for 0:42". The start time comes from the computer (`startedAt` in the list of active runs, or the time of the `run.started` event), so it is right after a reconnect.
+- A long press on a message offers Copy, Edit (puts its text in the composer), Send again (only while the link is live) for the person's messages, and Copy and Share for a finished reply. A message with images, files or a note on the page offers Copy alone: the composer takes text only. iOS uses the system action sheet, Android a Material bottom sheet.
+- With no chat open, the screen offers the sites as chips and, once a site is picked, four starter prompts. A prompt fills the composer; it does not send.
+- The phone taps back when a message goes out, when a question waits and when a turn ends: one pattern when it ended well, another when it failed, nothing when someone stopped it. Settings has a switch for it.
+- When the link is not live, one line above the composer says why, with Try again, or Details when another computer answers. The composer keeps its text and does not send.
+- Settings shows the link's state and, while it is not live, when it last was. Copy diagnostics copies the app version, the computer's name and address, the link's state, when it was last live and the last problem. It never copies the token.
 
 ## Work without Studio
 
@@ -132,6 +143,7 @@ A unit test fails when the generated file is older than `tokens.css`.
 - `npm run android` ends by opening the app on port 8081 at the computer's network address, where this app has no dev server. The app then shows a connection error. Open it with the `adb` commands above.
 - Restart the dev server after installing a package. It can miss new files otherwise.
 - Every `npm install` in this repository uses `--ignore-scripts`, because the root `postinstall` downloads WordPress and PHP files. After every install, run `node ./scripts/apply-available-patches.mjs apps/studio/patches` from the repo root so Studio's own patches stay applied.
+- A Release build for a real iPhone swaps React Native's prebuilt core, Hermes and Expo's prebuilt modules to their release flavor, and the next simulator build can keep them: it then fails to link, or the app dies at launch. Each swap is keyed on a marker file, `ios/Pods/React-Core-prebuilt/.last_build_configuration`, `ios/Pods/hermes-engine/.last_build_configuration` and `ios/Pods/<Module>/artifacts/.last_build_configuration`. Write `Release` into the first two and `release` into the others, then build again: the build swaps them back to debug.
 - After a change to `app.config.ts`, or to the `enriched-markdown` block in `package.json`, run `npx expo prebuild --clean` from `apps/mobile` before building. It regenerates the native projects.
 
 ## Checks
