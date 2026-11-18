@@ -27,8 +27,11 @@ export function ActionSheetHost() {
 	// open sheet goes with it and acts on nothing.
 	useEffect(
 		() => () => {
-			ActionSheetIOS.dismissActionSheet();
-			closeActionSheet();
+			// With no sheet open, iOS logs a warning for the dismiss.
+			if ( actionSheetStore.get() ) {
+				ActionSheetIOS.dismissActionSheet();
+				closeActionSheet();
+			}
 		},
 		[]
 	);
