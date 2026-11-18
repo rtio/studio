@@ -410,6 +410,19 @@ describe( 'createRunControl', () => {
 		expect( requests ).toHaveLength( 1 );
 	} );
 
+	it( 'leaves alone a chat whose send is on its way when the list lacks it', async () => {
+		const { control, requests, state } = setup();
+		const sent = control.send( 'chat-1', 'Add a blog' );
+
+		control.beginHydrate();
+		control.hydrate( [] );
+		expect( state().phase ).toBe( 'starting' );
+
+		requests[ 0 ].resolve( { runId: 'run-1' } );
+		await sent;
+		expect( state() ).toMatchObject( { phase: 'running', runId: 'run-1' } );
+	} );
+
 	it( 'leaves alone a chat whose send is on its way, also when it was stopped', async () => {
 		const { control, requests, state } = setup();
 		const sent = control.send( 'chat-1', 'Add a blog' );
@@ -440,6 +453,48 @@ describe( 'createRunControl', () => {
 		expect( state() ).toMatchObject( { phase: 'running', runId: 'run-1' } );
 	} );
 
+	it( 'does not open the questions again when their run ended before the answer failed', async () => {
+		const { control, requests, state, handle } = setup();
+		handle( 'run.started' );
+		handle( 'question.asked', { questions: [ LAYOUT ] } );
+		control.answer( 'chat-1', 'Which layout?', 'Grid' );
+
+		handle( 'run.exited' );
+		handle( 'run.started', { runId: 'run-2' } );
+		requests[ 0 ].reject( new Error( 'Not reachable' ) );
+		await settle();
+
+		expect( state() ).toMatchObject( { runId: 'run-2', pendingQuestions: [] } );
+		expect( control.notices.get() ).toEqual( {} );
+	} );
+
+	it( 'does not interrupt a run that ended while its Stop answered the questions', async () => {
+		const { control, requests, state, handle } = setup();
+		handle( 'run.started' );
+		handle( 'question.asked', { questions: [ LAYOUT ] } );
+
+		const stopping = control.stop( 'chat-1' );
+		handle( 'run.exited' );
+		requests[ 0 ].resolve( undefined );
+		await stopping;
+
+		expect( requests ).toHaveLength( 1 );
+		expect( state().phase ).toBe( 'idle' );
+	} );
+
+	it( 'does not take back a run the phone stopped when the computer still lists it', async () => {
+		const { control, requests, state, handle } = setup();
+		handle( 'run.started' );
+		const stopping = control.stop( 'chat-1' );
+		requests[ 0 ].resolve( undefined );
+		await stopping;
+
+		control.beginHydrate();
+		control.hydrate( [ { runId: 'run-1', sessionId: 'chat-1', pendingQuestions: [ LAYOUT ] } ] );
+
+		expect( state() ).toMatchObject( { isInterrupting: true, pendingQuestions: [] } );
+	} );
+
 	describe( 'a stopped run the computer no longer lists', () => {
 		afterEach( () => {
 			vi.useRealTimers();
@@ -462,6 +517,23 @@ describe( 'createRunControl', () => {
 			await vi.advanceTimersByTimeAsync( 1000 );
 			expect( state().phase ).toBe( 'starting' );
 			expect( requests[ 1 ].body ).toMatchObject( { prompt: 'Try again with a grid' } );
+		} );
+
+		it( 'does not end a run that started meanwhile', async () => {
+			vi.useFakeTimers();
+			const { control, requests, state, handle } = setup();
+			handle( 'run.started' );
+			const stopping = control.stop( 'chat-1' );
+			requests[ 0 ].resolve( undefined );
+			await stopping;
+
+			control.beginHydrate();
+			control.hydrate( [] );
+			// Studio on the computer starts a new run in the chat.
+			handle( 'run.started', { runId: 'run-2' } );
+			await vi.advanceTimersByTimeAsync( 3000 );
+
+			expect( state() ).toMatchObject( { phase: 'running', runId: 'run-2' } );
 		} );
 	} );
 } );
