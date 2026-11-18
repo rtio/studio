@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { ArrowUp, Square } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
+import { drafts, EMPTY_DRAFT } from '../../data/drafts';
 import { runControl } from '../../data/live-connection';
 import { useRunNotice, useRunState } from '../../data/use-run';
 import { playHaptic } from '../../feedback/haptics';
@@ -20,8 +21,12 @@ import type { RunNotice } from '../../data/run-control';
 interface ComposerProps {
 	// The open chat, or null before it exists.
 	chatId: string | null;
-	// Sends text that is not an answer. Rejects when it was not sent.
-	onSend: ( text: string ) => Promise< void >;
+	// The draft the field shows: the chat's, or the new chat's for its site
+	// (`draftKey` in data/drafts.ts).
+	draftId: string;
+	// Sends text that is not an answer. Rejects when it was not sent. With no
+	// chat open it makes one first, and names it through `onChatMade`.
+	onSend: ( text: string, onChatMade: ( chatId: string ) => void ) => Promise< void >;
 	// Why nothing can be sent now, if so. The person can still type.
 	blocked: string | null;
 }
@@ -54,14 +59,15 @@ function noticeText( notice: RunNotice ): string {
 
 // The field at the bottom of the chat, and the button that sends, queues or
 // stops.
-export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
+export function Composer( { chatId, draftId, onSend, blocked }: ComposerProps ) {
 	const { colors } = useTheme();
 	const state = useRunState( chatId );
 	const notice = useRunNotice( chatId );
-	const [ text, setText ] = useState( '' );
+	const { text, failed } =
+		useSyncExternalStore( drafts.store.subscribe, drafts.store.get )[ draftId ] ?? EMPTY_DRAFT;
+	const setText = ( next: string ) => drafts.set( draftId, next );
 	// The chat a send on its way belongs to; undefined when none is.
 	const [ sendingIn, setSendingIn ] = useState< string | null | undefined >( undefined );
-	const [ failed, setFailed ] = useState( false );
 	const sending = sendingIn !== undefined && sendingIn === chatId;
 	const armed = useArmedQuestion( chatId );
 	const target = answerTarget( state, armed );
@@ -72,26 +78,6 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 		answering: target !== null,
 	} );
 	const stopping = action === 'stop' || action === 'force-stop';
-	// The chat open now, for a send that ends after the person moved on.
-	const openChatId = useRef( chatId );
-	// A send from the empty screen opens the chat it makes: the next chat to
-	// open is that chat.
-	const awaitingNewChat = useRef( false );
-	const madeChatId = useRef< string | null >( null );
-
-	// A draft belongs to its chat, except in the chat a send from the empty
-	// screen just made.
-	useEffect( () => {
-		openChatId.current = chatId;
-		if ( awaitingNewChat.current ) {
-			awaitingNewChat.current = false;
-			madeChatId.current = chatId;
-			setSendingIn( chatId );
-			return;
-		}
-		setText( '' );
-		setFailed( false );
-	}, [ chatId ] );
 
 	// "Other" belongs to its batch of questions: once that is gone, the
 	// composer sends messages again.
@@ -103,27 +89,28 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 
 	async function send() {
 		const from = chatId;
-		awaitingNewChat.current = from === null;
-		madeChatId.current = null;
+		const fromDraft = draftId;
+		const generation = drafts.generation();
+		// The chat a send from the empty screen made, once it is made.
+		let made: string | null = null;
 		// The chat this send ends in: where it started, or the chat it made.
 		const own = ( id: string | null | undefined ) =>
-			id === from || ( from === null && id !== null && id === madeChatId.current );
-		setFailed( false );
+			id === from || ( from === null && id !== null && id === made );
+		drafts.clearFailure( fromDraft );
 		playHaptic( 'send' );
 		// Cleared before the request, and put back if it fails.
-		setText( '' );
+		drafts.set( fromDraft, '' );
 		setSendingIn( from );
 		try {
-			await onSend( trimmed );
+			await onSend( trimmed, ( id ) => {
+				made = id;
+				setSendingIn( id );
+			} );
 		} catch {
-			// Only where it was typed: the person may have opened another chat
-			// meanwhile. Text typed in the meantime wins.
-			if ( own( openChatId.current ) ) {
-				setText( ( current ) => current || trimmed );
-				setFailed( true );
-			}
+			// Back into the draft of the chat it was for (the chat a send from
+			// the empty screen made, if it made one), wherever the person is now.
+			drafts.fail( made ?? fromDraft, trimmed, generation );
 		} finally {
-			awaitingNewChat.current = false;
 			setSendingIn( ( current ) => ( own( current ) ? undefined : current ) );
 		}
 	}

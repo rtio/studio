@@ -8,6 +8,7 @@ import { playHaptic } from '../feedback/haptics';
 import { createValueStore } from '../lib/value-store';
 import { withUpdatedSite } from './chat-list';
 import { requestChatRead } from './chat-read';
+import { drafts } from './drafts';
 import { createHapticMoments } from './haptic-moments';
 import { startLiveSession } from './live-session';
 import { createOpenChat } from './open-chat';
@@ -160,6 +161,7 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	hapticMoments.clear();
 	openChat.clear();
 	runControl.clear();
+	drafts.clear();
 	resetSelection();
 	if ( ! connection ) {
 		liveStatusStore.set( 'off' );
@@ -175,9 +177,14 @@ export function reconnectNow(): void {
 
 const createdChatSchema = z.object( { id: z.string() } );
 
-// Makes a chat for the site on the computer, opens it, and sends it the first
-// prompt. Rejects when either step failed; a chat that was made stays open.
-export async function startChat( siteId: string, text: string ): Promise< void > {
+// Makes a chat for the site on the computer, names it through `onChatMade`,
+// opens it, and sends it the first prompt. Rejects when either step failed; a
+// chat that was made stays open.
+export async function startChat(
+	siteId: string,
+	text: string,
+	onChatMade: ( chatId: string ) => void
+): Promise< void > {
 	if ( ! text.trim() ) {
 		return;
 	}
@@ -188,6 +195,7 @@ export async function startChat( siteId: string, text: string ): Promise< void >
 		siteId,
 	} );
 	const { id } = createdChatSchema.parse( created );
+	onChatMade( id );
 	selectChat( id );
 	await runControl.send( id, text );
 }

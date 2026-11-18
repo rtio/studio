@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConnectionState } from '../../connection/connection';
+import { draftKey } from '../../data/drafts';
 import { reconnectNow, runControl, startChat } from '../../data/live-connection';
 import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '../../data/selection';
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
@@ -72,11 +73,13 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	} else if ( ! chatId && ! siteId ) {
 		blocked = __( 'Choose a site in the menu to start a chat.' );
 	}
-	const send = ( text: string ) => {
+	const send = ( text: string, onChatMade: ( id: string ) => void ) => {
 		if ( chatId ) {
 			return runControl.send( chatId, text );
 		}
-		return siteId ? startChat( siteId, text ) : Promise.reject( new Error( 'No site' ) );
+		return siteId
+			? startChat( siteId, text, onChatMade )
+			: Promise.reject( new Error( 'No site' ) );
 	};
 
 	return (
@@ -132,7 +135,12 @@ function PairedHome( { connection }: { connection: Connection } ) {
 						onLayout={ ( event ) => setBottomHeight( event.nativeEvent.layout.height ) }
 						style={ [ styles.bottom, { paddingBottom: insets.bottom + space[ 2 ] } ] }
 					>
-						<Composer chatId={ chatId } onSend={ send } blocked={ blocked } />
+						<Composer
+							chatId={ chatId }
+							draftId={ draftKey( chatId, siteId ?? null ) }
+							onSend={ send }
+							blocked={ blocked }
+						/>
 					</View>
 
 					<View
