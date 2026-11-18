@@ -1,11 +1,14 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, useSyncExternalStore } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useConnectionState } from '../../connection/connection';
 import { forgetThisComputer } from '../../data/connection-actions';
+import { connectionHistory } from '../../data/live-connection';
+import { useLiveStatus } from '../../data/use-remote-data';
 import { hapticsPreference, useHapticsPreference } from '../../feedback/haptics';
 import { colorSchemePreference, useColorSchemePreference } from '../../theme/color-scheme';
 import { space } from '../../theme/typography';
@@ -14,8 +17,11 @@ import { ChoiceRow } from '../../ui/ChoiceRow';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { IconButton } from '../../ui/IconButton';
 import { Screen } from '../../ui/Screen';
+import { StatusDot } from '../../ui/StatusDot';
 import { SwitchRow } from '../../ui/SwitchRow';
 import { Text } from '../../ui/Text';
+import { liveStatusColor, liveStatusText } from '../live-status-text';
+import { diagnosticsText } from './diagnostics';
 import type { ColorSchemePreference } from '../../theme/color-scheme-preference';
 
 // The paired computer with "Forget this computer", the theme, haptics, and the
@@ -25,6 +31,12 @@ export function SettingsScreen() {
 	const state = useConnectionState();
 	const preference = useColorSchemePreference();
 	const haptics = useHapticsPreference();
+	const status = useLiveStatus();
+	const history = useSyncExternalStore(
+		connectionHistory.store.subscribe,
+		connectionHistory.store.get
+	);
+	const [ copied, setCopied ] = useState( false );
 	const [ asking, setAsking ] = useState( false );
 	const [ forgetting, setForgetting ] = useState( false );
 	const connection = state.status === 'ready' ? state.connection : null;
@@ -49,6 +61,41 @@ export function SettingsScreen() {
 					</Text>
 					<Text variant="bodyStrong">{ connection.label }</Text>
 					<Text color="mutedForeground">{ connection.baseUrl }</Text>
+					<View style={ styles.status }>
+						<StatusDot color={ liveStatusColor( status ) } />
+						<Text style={ styles.statusText }>{ liveStatusText( status, connection.label ) }</Text>
+					</View>
+					{ status === 'wrong-computer' && (
+						<Text color="mutedForeground">
+							{ __(
+								'This phone sends nothing there. If your computer has a new address, forget this computer and pair again.'
+							) }
+						</Text>
+					) }
+					{ history.lastLiveAt !== null && status !== 'live' && (
+						<Text color="mutedForeground">
+							{ sprintf(
+								/* translators: %s: a date and time. */
+								__( 'Last connected %s' ),
+								new Date( history.lastLiveAt ).toLocaleString()
+							) }
+						</Text>
+					) }
+					<Button
+						variant="secondary"
+						label={ copied ? __( 'Copied' ) : __( 'Copy diagnostics' ) }
+						onPress={ () => {
+							const text = diagnosticsText( {
+								appVersion: Constants.expoConfig?.version ?? '',
+								platform: `${ Platform.OS } ${ Platform.Version }`,
+								computer: connection.label,
+								address: connection.baseUrl,
+								status,
+								history,
+							} );
+							void Clipboard.setStringAsync( text ).then( () => setCopied( true ) );
+						} }
+					/>
 					<Button
 						variant="destructive"
 						label={ __( 'Forget this computer' ) }
@@ -105,6 +152,8 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create( {
+	status: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
+	statusText: { flex: 1 },
 	header: { flexDirection: 'row', alignItems: 'center', gap: space[ 3 ] },
 	section: { gap: space[ 2 ] },
 } );

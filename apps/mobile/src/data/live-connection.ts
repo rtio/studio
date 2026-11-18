@@ -8,6 +8,7 @@ import { playHaptic } from '../feedback/haptics';
 import { createValueStore } from '../lib/value-store';
 import { withUpdatedSite } from './chat-list';
 import { requestChatRead } from './chat-read';
+import { createConnectionHistory } from './connection-history';
 import { drafts } from './drafts';
 import { createHapticMoments } from './haptic-moments';
 import { startLiveSession } from './live-session';
@@ -31,6 +32,10 @@ import type { Connection } from '../connection/connection-store';
 
 export const liveStatusStore = createValueStore< LiveStatus >( 'off' );
 export const activityStore = createValueStore< ActivityMap >( {} );
+
+// When the link was last live and its last problem, for Settings.
+export const connectionHistory = createConnectionHistory( Date.now );
+liveStatusStore.subscribe( () => connectionHistory.note( liveStatusStore.get() ) );
 
 let live: {
 	connection: Connection;
@@ -162,6 +167,7 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	openChat.clear();
 	runControl.clear();
 	drafts.clear();
+	connectionHistory.clear();
 	resetSelection();
 	if ( ! connection ) {
 		liveStatusStore.set( 'off' );
