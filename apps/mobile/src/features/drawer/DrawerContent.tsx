@@ -3,9 +3,12 @@ import { Settings } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { groupChats } from '../../data/chat-groups';
 import { chatsOfSite, searchChats } from '../../data/chat-list';
 import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '../../data/selection';
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
+import { formatElapsed } from '../../lib/elapsed';
+import { useNow } from '../../lib/use-now';
 import { space } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
 import { IconButton } from '../../ui/IconButton';
@@ -16,7 +19,37 @@ import { StatusDot } from '../../ui/StatusDot';
 import { Text } from '../../ui/Text';
 import { liveStatusColor, liveStatusText } from '../live-status-text';
 import type { Connection } from '../../connection/connection-store';
+import type { ChatGroup } from '../../data/chat-groups';
 import type { ChatRow } from '../../data/chat-list';
+
+// What the chat list holds: a heading, or a chat.
+type ListItem =
+	| { kind: 'heading'; key: string; label: string }
+	| { kind: 'chat'; key: string; chat: ChatRow };
+
+function groupHeading( group: ChatGroup ): string {
+	switch ( group ) {
+		case 'needs-you':
+			return __( 'Needs you' );
+		case 'working':
+			return __( 'Working' );
+		case 'rest':
+			return __( 'Chats' );
+		case 'results':
+			return __( 'Results' );
+	}
+}
+
+// Search results in one list. Otherwise the chats that need the person, and
+// those at work, come first under their own headings. Nothing when there is no
+// chat, so the list shows why.
+function listItems( shown: ChatRow[], searching: boolean ): ListItem[] {
+	const chatItem = ( chat: ChatRow ): ListItem => ( { kind: 'chat', key: chat.id, chat } );
+	return groupChats( shown, searching ).flatMap( ( section ) => [
+		{ kind: 'heading' as const, key: section.group, label: groupHeading( section.group ) },
+		...section.chats.map( chatItem ),
+	] );
+}
 
 interface DrawerContentProps {
 	connection: Connection;
@@ -41,6 +74,9 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 	// chosen site's chats.
 	const searching = query.trim() !== '';
 	const shown = searching ? searchChats( chats, query ) : chatsOfSite( chats, selectedSiteId );
+	const items = listItems( shown, searching );
+	// The time next to a working chat ticks.
+	const now = useNow( shown.some( ( chat ) => chat.activity === 'working' ) );
 
 	function chooseChat( chat: ChatRow ) {
 		selectChat( chat.id );
@@ -80,9 +116,12 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 					) }
 				</View>
 			) }
-			<Text variant="label" color="mutedForeground" style={ styles.heading }>
-				{ searching ? __( 'Results' ) : __( 'Chats' ) }
-			</Text>
+			{ /* With no chat to list, the heading still names what is empty. */ }
+			{ shown.length === 0 && (
+				<Text variant="label" color="mutedForeground" style={ styles.heading }>
+					{ searching ? __( 'Results' ) : __( 'Chats' ) }
+				</Text>
+			) }
 		</View>
 	);
 
@@ -95,9 +134,9 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 
 	return (
 		<View style={ [ styles.drawer, { paddingTop: insets.top + space[ 3 ] } ] }>
-			<FlatList
-				data={ shown }
-				keyExtractor={ ( chat ) => chat.id }
+			<FlatList< ListItem >
+				data={ items }
+				keyExtractor={ ( item ) => item.key }
 				keyboardShouldPersistTaps="handled"
 				contentContainerStyle={ styles.list }
 				ListHeaderComponent={ header }
@@ -113,17 +152,28 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 						</View>
 					)
 				}
-				renderItem={ ( { item } ) => (
-					<ListRow
-						label={ item.title }
-						caption={
-							searching || selectedSiteId === null ? item.siteName ?? undefined : undefined
-						}
-						selected={ item.id === selectedChatId }
-						trailing={ <ChatMark chat={ item } /> }
-						onPress={ () => chooseChat( item ) }
-					/>
-				) }
+				renderItem={ ( { item } ) =>
+					item.kind === 'heading' ? (
+						<Text
+							variant="label"
+							color="mutedForeground"
+							accessibilityRole="header"
+							style={ styles.heading }
+						>
+							{ item.label }
+						</Text>
+					) : (
+						<ListRow
+							label={ item.chat.title }
+							caption={
+								searching || selectedSiteId === null ? item.chat.siteName ?? undefined : undefined
+							}
+							selected={ item.chat.id === selectedChatId }
+							trailing={ <ChatMark chat={ item.chat } now={ now } /> }
+							onPress={ () => chooseChat( item.chat ) }
+						/>
+					)
+				}
 			/>
 			<View
 				style={ [
@@ -154,8 +204,8 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 }
 
 // The mark at the end of a chat row: an accent dot when the agent waits for an
-// answer, a spinner while it works.
-function ChatMark( { chat }: { chat: ChatRow } ) {
+// answer, a spinner and the time it has worked while it works.
+function ChatMark( { chat, now }: { chat: ChatRow; now: number } ) {
 	if ( chat.activity === 'needs-answer' ) {
 		return (
 			<View accessible accessibilityLabel={ __( 'Needs an answer' ) }>
@@ -164,8 +214,14 @@ function ChatMark( { chat }: { chat: ChatRow } ) {
 		);
 	}
 	if ( chat.activity === 'working' ) {
+		const elapsed = chat.since === undefined ? null : formatElapsed( now - chat.since );
 		return (
-			<View accessible accessibilityLabel={ __( 'Working' ) }>
+			<View accessible accessibilityLabel={ __( 'Working' ) } style={ styles.working }>
+				{ elapsed && (
+					<Text variant="caption" color="mutedForeground" style={ styles.elapsed }>
+						{ elapsed }
+					</Text>
+				) }
 				<Spinner />
 			</View>
 		);
@@ -191,4 +247,7 @@ const styles = StyleSheet.create( {
 	computer: { flex: 1, gap: 2 },
 	status: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
 	statusText: { flex: 1 },
+	working: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
+	// Digits of one width, so the time does not jitter as it ticks.
+	elapsed: { fontVariant: [ 'tabular-nums' ] },
 } );
