@@ -23,6 +23,7 @@ import { drafts } from '../../data/drafts';
 import { runControl } from '../../data/live-connection';
 import { useLiveStatus } from '../../data/use-remote-data';
 import { useRunState, useSentAnswers } from '../../data/use-run';
+import { playHaptic } from '../../feedback/haptics';
 import { formatElapsed } from '../../lib/elapsed';
 import { useNow } from '../../lib/use-now';
 import { space } from '../../theme/typography';
@@ -120,6 +121,7 @@ function runAction( action: MessageAction, chatId: string, text: string ) {
 			// text in the composer with its notice; an older notice goes, as on
 			// any send.
 			drafts.clearFailure( chatId );
+			playHaptic( 'send' );
 			const since = drafts.generation();
 			runControl.send( chatId, text ).catch( () => drafts.fail( chatId, text, since ) );
 			return;
