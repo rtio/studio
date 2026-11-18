@@ -217,8 +217,13 @@ export function createRunControl( parts: RunControlParts ): RunControl {
 			// The queue stays. It goes when the person sends again or the
 			// stream opens again. A run that started meanwhile (Studio on the
 			// computer sent first, or this send timed out after it started)
-			// stays: its events moved the chat on.
-			if ( revisions.get( chatId ) === revision ) {
+			// stays: its events moved the chat on. A Stop pressed during the
+			// send changed the chat too, but named no run: that chat is idle.
+			const state = stateOf( chatId );
+			if (
+				revisions.get( chatId ) === revision ||
+				( state.runId === null && state.phase !== 'starting' )
+			) {
 				dispatch( chatId, { type: 'run_ended' } );
 			}
 			throw error;

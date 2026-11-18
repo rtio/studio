@@ -320,6 +320,23 @@ describe( 'createRunControl', () => {
 		expect( state() ).toMatchObject( { runId: 'run-1', isInterrupting: true } );
 	} );
 
+	it( 'leaves the chat idle when a send stopped on its way is refused', async () => {
+		const { control, requests, state } = setup();
+		const sent = control.send( 'chat-1', 'Add a blog' );
+		await control.stop( 'chat-1' );
+
+		requests[ 0 ].reject( new Error( 'Internal error' ) );
+		await expect( sent ).rejects.toThrow( 'Internal error' );
+		expect( state() ).toMatchObject( { phase: 'idle', isInterrupting: false } );
+
+		// The Stop went with the refused send: the next run is not stopped.
+		const next = control.send( 'chat-1', 'Add a menu' );
+		requests[ 1 ].resolve( { runId: 'run-2' } );
+		await next;
+		expect( requests ).toHaveLength( 2 );
+		expect( state() ).toMatchObject( { phase: 'running', runId: 'run-2' } );
+	} );
+
 	it( 'answers the questions of a Stop once, however often it is tapped', async () => {
 		const { control, requests, handle } = setup();
 		handle( 'run.started' );
