@@ -18,10 +18,15 @@ function deferred< T >() {
 	return { promise, resolve, reject };
 }
 
-function agentEvent( sessionId: string, runId: string, type: string ) {
+function agentEvent(
+	sessionId: string,
+	runId: string,
+	type: string,
+	more: Record< string, unknown > = {}
+) {
 	return `data: ${ JSON.stringify( {
 		channel: 'agent',
-		payload: { runId, sessionId, event: { type } },
+		payload: { runId, sessionId, event: { type, ...more } },
 	} ) }\n\n`;
 }
 
@@ -176,6 +181,26 @@ describe( 'startLiveSession', () => {
 
 		expect( parts.onActiveRuns ).toHaveBeenCalledWith( runs );
 		expect( parts.onRunEvent ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( "keeps when a run seen live started, and passes a turn's status on", async () => {
+		const { parts, activity, streams } = setup();
+		await settle();
+		const { stream } = streams[ 0 ];
+		stream.onOpen();
+
+		stream.onData(
+			agentEvent( 'chat-2', 'run-2', 'run.started', { timestamp: '2026-11-18T10:00:00.000Z' } )
+		);
+		expect( activity.get()[ 'chat-2' ] ).toMatchObject( {
+			since: Date.parse( '2026-11-18T10:00:00.000Z' ),
+		} );
+
+		stream.onData( agentEvent( 'chat-2', 'run-2', 'turn.completed', { status: 'error' } ) );
+		expect( parts.onRunEvent ).toHaveBeenLastCalledWith(
+			'chat-2',
+			expect.objectContaining( { type: 'turn.completed', status: 'error' } )
+		);
 	} );
 
 	it( 'ignores an answer about the active runs that arrives after a newer open', async () => {
