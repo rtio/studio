@@ -2,7 +2,7 @@
 
 Studio's phone app: a remote for Studio Code. Expo SDK 58, React Native 0.88, expo-router.
 
-**Status:** pairing, the drawer and reading a chat. The app pairs with `studio remote`, lists the computer's sites and chats, keeps them live, and shows the open chat as the agent works: its reply as it is written, its steps, its questions. It cannot send a message, answer or stop a run yet. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone.
+**Status:** pairing, the drawer, reading and writing a chat. The app pairs with `studio remote`, lists the computer's sites and chats, keeps them live, and shows the open chat as the agent works: its reply as it is written, its steps, its questions. It sends messages, queues them while the agent works, stops a run, answers the agent's questions and starts a new chat for a site. It runs on the iOS Simulator and on an Android emulator. It has not run on a real phone, and it has not sent a message to a real agent: only to the stand-in server below.
 
 ## What it needs
 
@@ -93,9 +93,22 @@ What the phone does not show:
 - images: an image in the agent's text is never requested; an image on its own line, and a screenshot, show as their description;
 - links other than `http` and `https`, and links to the computer's own `localhost`, which would reach the phone itself. The text cannot be selected, and iOS shows no link menu or preview on a long press: both would get around this rule.
 
+## Sending, stopping, answering
+
+The phone follows the rules of Studio's own composer, with the same run-state reducer (`packages/agent/protocol/transcript/run-state.ts`). The phone's side is `src/data/run-control.ts`.
+
+- A message goes out only while the chat is idle. While the agent works, a question waits or earlier messages wait, it joins a queue shown above the composer, and the first one goes out when the run's process has exited. The computer refuses a message to a busy chat with the same error it gives for a broken one, so the phone never relies on the answer.
+- A send carries a random turn id, so the computer passes the prompt to the agent in a file and not on its command line.
+- Stop asks the agent to stop; a second Stop kills it. If a question is open, the phone first answers it with "stopped without an answer": the agent waits for the answer and not for the stop.
+- The answers of a batch of questions go in one request, once each question has one: the computer takes one answer per batch. A tap answers a single-choice question; a multiple-choice one takes its picks with Done. When the agent offers its own "Other", the composer takes the answer.
+- A new chat is made for the site in the header, then the first message goes to it.
+- The queue lives in memory only, and the text being typed is dropped when another chat opens. Studio on the computer has its own queue; the two do not see each other.
+
 ## Work without Studio
 
 A spinner, a question or live text needs an agent run. For work on the app there is a stand-in server with made-up sites and chats and a loop of events. In "Add a blog" it plays a whole run: the prompt, a streamed reply with a step, a question that is answered on the computer, and a final reply. It logs any request for the image in that reply, which the app must never make.
+
+It also takes what the phone sends. A message starts a short run in that chat; with a `?` in it, the agent first asks two questions (one with its own "Other", one with several picks). Answers, Stop and new chats work as on the computer, including the 500 for a message to a busy chat and a stopped run leaving the list of active runs at once. The loop leaves alone a chat the phone runs in. What the phone sent is lost when the server stops.
 
 ```bash
 node scripts/fake-remote.mjs
