@@ -1,3 +1,4 @@
+import { uuid } from 'expo';
 import { AppState } from 'react-native';
 import { createConnectionClient, reportUnauthorized } from '../connection/connection';
 import { openEventStream } from '../connection/open-event-stream';
@@ -10,6 +11,7 @@ import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
 import { chatKey, sessionsKey, sitesKey } from './query-keys';
 import { parseActiveRuns } from './remote-schemas';
+import { createRunControl } from './run-control';
 import {
 	resetSelection,
 	selectedChatId,
@@ -37,6 +39,21 @@ export const openChat = createOpenChat( ( chatId ) => {
 	if ( live ) {
 		void requestChatRead( queryClient, chatKey( live.connection, chatId ) );
 	}
+} );
+
+// Sends, queues, stops and answers. A request goes to the paired computer
+// only while the link is live.
+export const runControl = createRunControl( {
+	post: ( path, body ) => {
+		if ( ! live || liveStatusStore.get() !== 'live' ) {
+			return Promise.reject( new Error( 'Not connected' ) );
+		}
+		return createConnectionClient( live.connection ).post( path, body );
+	},
+	newTurnId: () => uuid.v4(),
+	now: Date.now,
+	showPrompt: ( chatId, text ) => openChat.showPrompt( chatId, text ),
+	dropPrompt: ( chatId, key ) => openChat.dropPrompt( chatId, key ),
 } );
 
 // The open chat changes as soon as the person chooses a chat, before the
@@ -89,6 +106,9 @@ function start( connection: Connection ) {
 		},
 		openChatId: selectedChatId,
 		onChatEvent: openChat.handle,
+		onRunEvent: runControl.handle,
+		onActiveRunsRead: runControl.beginHydrate,
+		onActiveRuns: runControl.hydrate,
 	} );
 
 	// The system can freeze the app in the background and drop the stream
@@ -124,6 +144,7 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	live = null;
 	activityStore.set( {} );
 	openChat.clear();
+	runControl.clear();
 	resetSelection();
 	if ( ! connection ) {
 		liveStatusStore.set( 'off' );

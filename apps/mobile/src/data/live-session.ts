@@ -43,9 +43,15 @@ export interface LiveSessionParts {
 	onSiteUpdated: ( site: Site ) => void;
 	onSiteAddedOrRemoved: ( event: 'site-created' | 'site-deleted', siteId: string ) => void;
 	// The chat that is open on the phone, if any. Its events go to
-	// `onChatEvent`; the events of every other chat stop at the activity.
+	// `onChatEvent` too.
 	openChatId: () => string | null;
 	onChatEvent: ( chatId: string, event: ChatEvent ) => void;
+	// Every agent event of every chat, for the run control (data/run-control.ts).
+	onRunEvent: ( chatId: string, event: ChatEvent ) => void;
+	// The runs are read again: right before the request, then with what the
+	// computer listed. The run control keeps what newer events said.
+	onActiveRunsRead: () => void;
+	onActiveRuns: ( runs: ActiveRun[] ) => void;
 }
 
 export interface LiveSession {
@@ -71,6 +77,7 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 		const mine = opens;
 		duringReload = [];
 		parts.onListsStale();
+		parts.onActiveRunsRead();
 		let runs: ActiveRun[] | null = null;
 		try {
 			runs = await parts.loadActiveRuns();
@@ -84,6 +91,7 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 		duringReload = null;
 		if ( runs ) {
 			activity.set( newer.reduce( applyAgentEvent, activityFromActiveRuns( runs ) ) );
+			parts.onActiveRuns( runs );
 		}
 	}
 
@@ -98,21 +106,23 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 		if ( message.channel === 'agent' ) {
 			const { sessionId, runId, event } = message.payload;
 			const info = { sessionId, runId, type: event.type, detail: event.inner?.type };
+			const chatEvent: ChatEvent = {
+				runId,
+				type: event.type,
+				timestamp: event.timestamp,
+				inner: event.inner,
+				text: event.text,
+				questions: event.questions,
+			};
 			duringReload?.push( info );
 			activity.set( applyAgentEvent( activity.get(), info ) );
 			if ( event.type === 'run.started' || event.type === 'run.exited' ) {
 				parts.onChatsStale();
 			}
 			if ( sessionId === parts.openChatId() ) {
-				parts.onChatEvent( sessionId, {
-					runId,
-					type: event.type,
-					timestamp: event.timestamp,
-					inner: event.inner,
-					text: event.text,
-					questions: event.questions,
-				} );
+				parts.onChatEvent( sessionId, chatEvent );
 			}
+			parts.onRunEvent( sessionId, chatEvent );
 			return;
 		}
 		const { event, siteId, site } = message.payload;

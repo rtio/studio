@@ -67,6 +67,9 @@ function setup( whoAnswersFirst: 'paired' | 'other' | 'nobody' = 'paired' ) {
 		onSiteAddedOrRemoved: vi.fn(),
 		openChatId: vi.fn( (): string | null => 'chat-1' ),
 		onChatEvent: vi.fn(),
+		onRunEvent: vi.fn(),
+		onActiveRunsRead: vi.fn(),
+		onActiveRuns: vi.fn(),
 	};
 
 	return {
@@ -149,6 +152,30 @@ describe( 'startLiveSession', () => {
 		await settle();
 
 		expect( activity.get() ).toEqual( { 'chat-2': { runId: 'run-2', activity: 'working' } } );
+	} );
+
+	it( 'gives the run control every agent event, and the active runs it read', async () => {
+		const { parts, streams, runReads } = setup();
+		await settle();
+		const { stream } = streams[ 0 ];
+		stream.onOpen();
+		expect( parts.onActiveRunsRead ).toHaveBeenCalledTimes( 1 );
+		expect( parts.onActiveRunsRead.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			parts.loadActiveRuns.mock.invocationCallOrder[ 0 ]
+		);
+
+		stream.onData( agentEvent( 'chat-2', 'run-2', 'run.started' ) );
+		expect( parts.onRunEvent ).toHaveBeenCalledWith(
+			'chat-2',
+			expect.objectContaining( { runId: 'run-2', type: 'run.started' } )
+		);
+
+		const runs = [ { runId: 'run-1', sessionId: 'chat-1' } ];
+		runReads[ 0 ].resolve( runs );
+		await settle();
+
+		expect( parts.onActiveRuns ).toHaveBeenCalledWith( runs );
+		expect( parts.onRunEvent ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'ignores an answer about the active runs that arrives after a newer open', async () => {
