@@ -16,7 +16,7 @@ import {
 	Square,
 	TriangleAlert,
 } from 'lucide-react-native';
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { runControl } from '../../data/live-connection';
 import { useRunState, useSentAnswers } from '../../data/use-run';
@@ -216,6 +216,23 @@ function Questions( {
 	const armed = useArmedQuestion( chatId );
 	// The picks of a multiple-choice question before Done, by question.
 	const [ drafts, setDrafts ] = useState< Record< string, string[] > >( {} );
+	// An answer from anywhere (the composer too) is done with the picks of
+	// its question.
+	const answeredBefore = useRef( state.pendingAnswers );
+	useEffect( () => {
+		const before = answeredBefore.current;
+		answeredBefore.current = state.pendingAnswers;
+		const answered = Object.keys( state.pendingAnswers ).filter(
+			( question ) => state.pendingAnswers[ question ] !== before[ question ]
+		);
+		if ( answered.length > 0 ) {
+			setDrafts( ( current ) => {
+				const next = { ...current };
+				answered.forEach( ( question ) => delete next[ question ] );
+				return next;
+			} );
+		}
+	}, [ state.pendingAnswers ] );
 	const views = questions.map( ( question ) => questionView( question, state, sent ) );
 
 	return (
