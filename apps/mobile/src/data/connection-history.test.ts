@@ -29,4 +29,14 @@ describe( 'createConnectionHistory', () => {
 
 		expect( history.store.get() ).toEqual( { lastLiveAt: null, lastProblem: null } );
 	} );
+
+	it( 'does not carry the live link of the last computer into the history of the next', () => {
+		const history = createConnectionHistory( () => 1000 );
+		history.note( 'live' );
+
+		history.clear();
+		history.note( 'reconnecting' );
+
+		expect( history.store.get().lastLiveAt ).toBeNull();
+	} );
 } );
