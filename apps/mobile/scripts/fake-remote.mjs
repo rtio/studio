@@ -548,6 +548,8 @@ function stopRun( run ) {
 	run.stopped = true;
 	emit( run, { type: 'run.interrupting' } );
 	if ( run.answer ) {
+		// An answer that comes after this reaches no one, as on the computer.
+		run.answer = null;
 		setTimeout( () => finish( run, killed ), 2000 );
 		return;
 	}
