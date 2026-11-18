@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDrafts, draftKey, EMPTY_DRAFT } from './drafts';
+import { createDrafts, draftKey, EMPTY_DRAFT, failedSendKey } from './drafts';
 
 describe( 'createDrafts', () => {
 	it( 'keeps a draft for each chat', () => {
@@ -55,5 +55,15 @@ describe( 'draftKey', () => {
 		expect( draftKey( 'chat-1', 's1' ) ).toBe( 'chat-1' );
 		expect( draftKey( null, 's1' ) ).toBe( 'new:s1' );
 		expect( draftKey( null, null ) ).toBe( 'new:' );
+	} );
+} );
+
+describe( 'failedSendKey', () => {
+	it( 'puts the text back where it was typed, or in the chat the send made while it is open', () => {
+		expect( failedSendKey( 'chat-1', null, 'chat-2' ) ).toBe( 'chat-1' );
+		expect( failedSendKey( 'new:s1', null, null ) ).toBe( 'new:s1' );
+		expect( failedSendKey( 'new:s1', 'chat-9', 'chat-9' ) ).toBe( 'chat-9' );
+		// The person left the chat the send made: the drawer does not list it.
+		expect( failedSendKey( 'new:s1', 'chat-9', 'chat-2' ) ).toBe( 'new:s1' );
 	} );
 } );

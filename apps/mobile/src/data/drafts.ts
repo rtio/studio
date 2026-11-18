@@ -13,6 +13,14 @@ export function draftKey( chatId: string | null, siteId: string | null ): string
 	return chatId ?? `new:${ siteId ?? '' }`;
 }
 
+// Where the text of a failed send goes back: the draft it was typed in, or
+// the chat the send made from the empty screen while that chat is open. A chat
+// made that way has no prompt yet, so the drawer does not list it: once the
+// person has left it, the text goes back to the empty screen of its site.
+export function failedSendKey( typedIn: string, made: string | null, open: string | null ): string {
+	return made !== null && made === open ? made : typedIn;
+}
+
 // The drafts of every chat, in memory while the app runs. A draft belongs to
 // its chat: it is there again when the chat opens, and a send that fails puts
 // its text back into the draft of the chat it was for, wherever the person is.

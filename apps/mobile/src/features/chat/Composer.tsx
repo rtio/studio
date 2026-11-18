@@ -2,8 +2,9 @@ import { __ } from '@wordpress/i18n';
 import { ArrowUp, Square } from 'lucide-react-native';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { drafts, EMPTY_DRAFT } from '../../data/drafts';
+import { drafts, EMPTY_DRAFT, failedSendKey } from '../../data/drafts';
 import { runControl } from '../../data/live-connection';
+import { selectedChatId } from '../../data/selection';
 import { useRunNotice, useRunState } from '../../data/use-run';
 import { playHaptic } from '../../feedback/haptics';
 import { space, textStyles } from '../../theme/typography';
@@ -135,9 +136,9 @@ export function Composer( { chatId, draftId, onSend, offline, blocked }: Compose
 				setSendingIn( id );
 			} );
 		} catch {
-			// Back into the draft of the chat it was for (the chat a send from
-			// the empty screen made, if it made one), wherever the person is now.
-			drafts.fail( made ?? fromDraft, trimmed, generation );
+			// Back into the draft of the chat it was for, wherever the person
+			// is now (see failedSendKey).
+			drafts.fail( failedSendKey( fromDraft, made, selectedChatId() ), trimmed, generation );
 		} finally {
 			setSendingIn( ( current ) => ( own( current ) ? undefined : current ) );
 		}
