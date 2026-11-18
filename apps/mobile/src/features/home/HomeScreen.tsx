@@ -3,10 +3,10 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Menu } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConnectionState } from '../../connection/connection';
-import { reconnectNow } from '../../data/live-connection';
+import { reconnectNow, runControl } from '../../data/live-connection';
 import { useSelectedChatId, useSelectedSiteId } from '../../data/selection';
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
 import { space } from '../../theme/typography';
@@ -18,6 +18,7 @@ import { StatusDot } from '../../ui/StatusDot';
 import { Text } from '../../ui/Text';
 import { TopBarBackdrop } from '../../ui/TopBarBackdrop';
 import { ChatView } from '../chat/ChatView';
+import { Composer } from '../chat/Composer';
 import { AppDrawer } from '../drawer/AppDrawer';
 import { DrawerContent } from '../drawer/DrawerContent';
 import { liveStatusColor, liveStatusText } from '../live-status-text';
@@ -38,8 +39,10 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
 	const [ drawerOpen, setDrawerOpen ] = useState( false );
-	// The height of the header and the banner, which float over the chat.
+	// The height of the header and the banner, which float over the chat, and
+	// of the composer under it.
 	const [ topHeight, setTopHeight ] = useState( 0 );
+	const [ bottomHeight, setBottomHeight ] = useState( 0 );
 	const openDrawer = useCallback( () => setDrawerOpen( true ), [] );
 	const closeDrawer = useCallback( () => setDrawerOpen( false ), [] );
 	const sites = useSites( connection );
@@ -71,77 +74,107 @@ function PairedHome( { connection }: { connection: Connection } ) {
 				/>
 			}
 		>
-			<View style={ [ styles.screen, { backgroundColor: colors.background } ] }>
-				<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
-				{ chat ? (
-					<ChatView
-						key={ chat.id }
-						connection={ connection }
-						chatId={ chat.id }
-						topInset={ topHeight }
-						bottomInset={ insets.bottom + space[ 4 ] }
-					/>
-				) : (
-					<View style={ [ styles.body, { paddingTop: topHeight } ] }>
-						<Text variant="title">{ __( 'What should we build?' ) }</Text>
-						<Text color="mutedForeground">
-							{ __( 'Open the menu to choose a site and a chat.' ) }
-						</Text>
-					</View>
-				) }
+			{ /* The composer sits on the keyboard, which covers the home indicator:
+			the bottom inset is not added while the keyboard shows. */ }
+			<KeyboardAvoidingView
+				behavior="padding"
+				keyboardVerticalOffset={ -insets.bottom }
+				style={ [ styles.screen, { backgroundColor: colors.background } ] }
+			>
+				{ /* Positions what floats here inside the space the keyboard leaves. */ }
+				<View style={ styles.screen }>
+					<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
+					{ chat ? (
+						<ChatView
+							key={ chat.id }
+							connection={ connection }
+							chatId={ chat.id }
+							topInset={ topHeight }
+							bottomInset={ bottomHeight + space[ 2 ] }
+						/>
+					) : (
+						<View style={ [ styles.body, { paddingTop: topHeight } ] }>
+							<Text variant="title">{ __( 'What should we build?' ) }</Text>
+							<Text color="mutedForeground">
+								{ __( 'Open the menu to choose a site and a chat.' ) }
+							</Text>
+						</View>
+					) }
 
-				<View
-					onLayout={ ( event ) => setTopHeight( event.nativeEvent.layout.height ) }
-					style={ [ styles.top, { paddingTop: insets.top } ] }
-				>
-					<TopBarBackdrop />
-					<View style={ styles.header }>
-						<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
-						<Pressable
-							accessibilityRole="button"
-							accessibilityLabel={ __( 'Choose a site' ) }
-							onPress={ openDrawer }
-							style={ styles.capsulePress }
+					{ chat && (
+						<View
+							onLayout={ ( event ) => setBottomHeight( event.nativeEvent.layout.height ) }
+							style={ [ styles.bottom, { paddingBottom: insets.bottom + space[ 2 ] } ] }
 						>
-							<FloatingSurface style={ styles.capsule }>
-								{ site && (
-									<StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } />
+							<Composer
+								chatId={ chat.id }
+								onSend={ ( text ) => runControl.send( chat.id, text ) }
+								blocked={
+									status === 'live'
+										? null
+										: __( 'Messages go out when your computer is connected.' )
+								}
+							/>
+						</View>
+					) }
+
+					<View
+						onLayout={ ( event ) => setTopHeight( event.nativeEvent.layout.height ) }
+						style={ [ styles.top, { paddingTop: insets.top } ] }
+					>
+						<TopBarBackdrop />
+						<View style={ styles.header }>
+							<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel={ __( 'Choose a site' ) }
+								onPress={ openDrawer }
+								style={ styles.capsulePress }
+							>
+								<FloatingSurface style={ styles.capsule }>
+									{ site && (
+										<StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } />
+									) }
+									<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
+										{ siteName }
+									</Text>
+									{ chat?.live && (
+										<Text variant="caption" color="warning">
+											{ __( 'Live' ) }
+										</Text>
+									) }
+								</FloatingSurface>
+							</Pressable>
+							<View style={ styles.headerEnd } />
+						</View>
+
+						{ status !== 'live' && (
+							<FloatingSurface style={ styles.banner } radius={ 16 }>
+								<View style={ styles.bannerLine }>
+									<StatusDot color={ liveStatusColor( status ) } />
+									<Text variant="bodyStrong" style={ styles.bannerText }>
+										{ liveStatusText( status, connection.label ) }
+									</Text>
+								</View>
+								{ status === 'reconnecting' && (
+									<Button
+										variant="secondary"
+										label={ __( 'Try again' ) }
+										onPress={ reconnectNow }
+									/>
 								) }
-								<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
-									{ siteName }
-								</Text>
-								{ chat?.live && (
-									<Text variant="caption" color="warning">
-										{ __( 'Live' ) }
+								{ status === 'wrong-computer' && (
+									<Text color="mutedForeground">
+										{ __(
+											'This phone sends nothing there. If your computer has a new address, forget this computer in Settings and pair again.'
+										) }
 									</Text>
 								) }
 							</FloatingSurface>
-						</Pressable>
-						<View style={ styles.headerEnd } />
+						) }
 					</View>
-
-					{ status !== 'live' && (
-						<FloatingSurface style={ styles.banner } radius={ 16 }>
-							<View style={ styles.bannerLine }>
-								<StatusDot color={ liveStatusColor( status ) } />
-								<Text variant="bodyStrong" style={ styles.bannerText }>
-									{ liveStatusText( status, connection.label ) }
-								</Text>
-							</View>
-							{ status === 'reconnecting' && (
-								<Button variant="secondary" label={ __( 'Try again' ) } onPress={ reconnectNow } />
-							) }
-							{ status === 'wrong-computer' && (
-								<Text color="mutedForeground">
-									{ __(
-										'This phone sends nothing there. If your computer has a new address, forget this computer in Settings and pair again.'
-									) }
-								</Text>
-							) }
-						</FloatingSurface>
-					) }
 				</View>
-			</View>
+			</KeyboardAvoidingView>
 		</AppDrawer>
 	);
 }
@@ -149,6 +182,14 @@ function PairedHome( { connection }: { connection: Connection } ) {
 const styles = StyleSheet.create( {
 	screen: { flex: 1 },
 	top: { position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: space[ 2 ] },
+	bottom: {
+		position: 'absolute',
+		left: 0,
+		right: 0,
+		bottom: 0,
+		paddingHorizontal: space[ 4 ],
+		paddingTop: space[ 2 ],
+	},
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
