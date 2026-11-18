@@ -1,4 +1,4 @@
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Menu, SquarePen } from 'lucide-react-native';
@@ -24,6 +24,7 @@ import { Composer } from '../chat/Composer';
 import { AppDrawer } from '../drawer/AppDrawer';
 import { DrawerContent } from '../drawer/DrawerContent';
 import { liveStatusColor, liveStatusText } from '../live-status-text';
+import { NewChat } from './NewChat';
 import type { Connection } from '../../connection/connection-store';
 
 // The screen a paired phone opens on: the open chat, the header that names the
@@ -72,7 +73,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	if ( status !== 'live' ) {
 		blocked = __( 'Messages go out when your computer is connected.' );
 	} else if ( ! chatId && ! siteId ) {
-		blocked = __( 'Choose a site in the menu to start a chat.' );
+		blocked = __( 'Choose a site to start a chat.' );
 	}
 	const send = ( text: string, onChatMade: ( id: string ) => void ) => {
 		if ( chatId ) {
@@ -118,18 +119,12 @@ function PairedHome( { connection }: { connection: Connection } ) {
 							bottomInset={ bottomHeight + space[ 2 ] }
 						/>
 					) : (
-						<View style={ [ styles.body, { paddingTop: topHeight, paddingBottom: bottomHeight } ] }>
-							<Text variant="title">{ __( 'What should we build?' ) }</Text>
-							<Text color="mutedForeground">
-								{ site
-									? sprintf(
-											/* translators: %s: the name of a site. */
-											__( 'Start a new chat about %s, or open the menu to pick another chat.' ),
-											site.name
-									  )
-									: __( 'Open the menu to choose a site and a chat.' ) }
-							</Text>
-						</View>
+						<NewChat
+							sites={ sites.data ?? [] }
+							siteId={ siteId ?? null }
+							topInset={ topHeight }
+							bottomInset={ bottomHeight }
+						/>
 					) }
 
 					<View
@@ -242,5 +237,4 @@ const styles = StyleSheet.create( {
 	},
 	bannerLine: { flexDirection: 'row', alignItems: 'center', gap: space[ 2 ] },
 	bannerText: { flex: 1 },
-	body: { flex: 1, justifyContent: 'center', paddingHorizontal: space[ 5 ], gap: space[ 2 ] },
 } );
