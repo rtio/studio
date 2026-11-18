@@ -27,6 +27,9 @@ interface ComposerProps {
 	// Sends text that is not an answer. Rejects when it was not sent. With no
 	// chat open it makes one first, and names it through `onChatMade`.
 	onSend: ( text: string, onChatMade: ( chatId: string ) => void ) => Promise< void >;
+	// The link to the computer is down: nothing can be sent. The line above
+	// the composer says why.
+	offline: boolean;
 	// Why nothing can be sent now, if so. The person can still type.
 	blocked: string | null;
 }
@@ -59,7 +62,7 @@ function noticeText( notice: RunNotice ): string {
 
 // The field at the bottom of the chat, and the button that sends, queues or
 // stops.
-export function Composer( { chatId, draftId, onSend, blocked }: ComposerProps ) {
+export function Composer( { chatId, draftId, onSend, offline, blocked }: ComposerProps ) {
 	const { colors } = useTheme();
 	const state = useRunState( chatId );
 	const notice = useRunNotice( chatId );
@@ -131,7 +134,8 @@ export function Composer( { chatId, draftId, onSend, blocked }: ComposerProps ) 
 		void send();
 	}
 
-	const disabled = blocked !== null || ( ! stopping && ( trimmed.length === 0 || sending ) );
+	const disabled =
+		offline || blocked !== null || ( ! stopping && ( trimmed.length === 0 || sending ) );
 	let message: string | null = null;
 	if ( blocked ) {
 		message = blocked;
