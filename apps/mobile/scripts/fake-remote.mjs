@@ -7,6 +7,11 @@
 // Like the computer, it saves each entry of a chat before it sends the event
 // that tells about it.
 //
+// It also takes what the phone sends: a message starts a short run in that
+// chat (a prompt with "?" in it makes the agent ask two questions first), an
+// answer lets that run go on, a stop ends it as the computer does, and a new
+// chat is created for a site. The loop leaves alone a chat the phone runs in.
+//
 // It listens on 127.0.0.1 only. Run it from apps/mobile:
 //
 //   node scripts/fake-remote.mjs
@@ -14,6 +19,7 @@
 // Pair with the address it prints and the code FAKE-FAKE-FAKE. It logs each
 // request that carries a device token, and each request for the image in the
 // agent's reply, which the phone must never make.
+import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 
 const port = Number( process.env.FAKE_REMOTE_PORT ?? 8099 );
@@ -221,6 +227,12 @@ chats.set( 'c3', [ ...C3_SEED ] );
 // The runs `GET /api/runs/active` reports, by chat id.
 const activeRuns = new Map();
 const streams = new Set();
+// The chats where the loop below has a run, and the runs the phone started,
+// by chat id and by run id.
+const loopRuns = new Set();
+const phoneRuns = new Map();
+const runsById = new Map();
+let newChats = 0;
 
 function send( channel, payload ) {
 	const block = `data: ${ JSON.stringify( { channel, payload } ) }\n\n`;
@@ -249,6 +261,7 @@ function save( sessionId, saved ) {
 }
 
 function startRun( sessionId ) {
+	loopRuns.add( sessionId );
 	activeRuns.set( sessionId, {
 		runId: `run-${ sessionId }-${ Date.now() }`,
 		sessionId,
@@ -263,6 +276,7 @@ function endRun( sessionId ) {
 	agent( sessionId, { type: 'turn.completed', sessionId, status: 'success' } );
 	agent( sessionId, { type: 'run.exited', status: 'success', code: 0 } );
 	activeRuns.delete( sessionId );
+	loopRuns.delete( sessionId );
 	const ended = sessions.find( ( candidate ) => candidate.id === sessionId );
 	ended.updatedAt = new Date().toISOString();
 }
@@ -354,13 +368,26 @@ async function blogTurnEnd() {
 	endRun( 'c3' );
 }
 
+// A step of the loop in a chat: skipped while the phone runs in that chat,
+// and, unless it starts the loop's run, when the loop has no run there.
+function inChat( sessionId, step, starts = false ) {
+	return async () => {
+		if ( phoneRuns.has( sessionId ) || ( ! starts && ! loopRuns.has( sessionId ) ) ) {
+			return;
+		}
+		await step();
+	};
+}
+
 const SCRIPT = [
-	() => startRun( 'c1' ),
-	() => inner( 'c1', { type: 'message_update', message: assistant( [ text( 'Checking' ) ] ) } ),
-	blogTurn,
+	inChat( 'c1', () => startRun( 'c1' ), true ),
+	inChat( 'c1', () =>
+		inner( 'c1', { type: 'message_update', message: assistant( [ text( 'Checking' ) ] ) } )
+	),
+	inChat( 'c3', blogTurn, true ),
 	() => setRunning( sites[ 1 ], true ),
-	() => endRun( 'c1' ),
-	() => {
+	inChat( 'c1', () => endRun( 'c1' ) ),
+	inChat( 'c3', () => {
 		// Another tool of the same turn ends. The question still waits.
 		inner( 'c3', {
 			type: 'tool_execution_end',
@@ -368,10 +395,219 @@ const SCRIPT = [
 			toolName: 'wp_cli',
 			isError: false,
 		} );
-	},
-	blogTurnEnd,
+	} ),
+	inChat( 'c3', blogTurnEnd ),
 	() => setRunning( sites[ 1 ], false ),
 ];
+
+// The questions the agent asks when the phone's prompt asks for them: one
+// with the model's own "Other" option, and one where several can be picked.
+const COLOR_QUESTION = {
+	question: 'Which color scheme?',
+	options: [
+		{ label: 'Light', description: 'A bright background' },
+		{ label: 'Dark', description: 'A dark background' },
+		{ label: 'Other', description: 'Describe your own' },
+	],
+};
+const PAGES_QUESTION = {
+	question: 'Which pages should it change?',
+	options: [
+		{ label: 'Home', description: '' },
+		{ label: 'About', description: '' },
+		{ label: 'Blog', description: '' },
+	],
+	multiSelect: true,
+};
+
+// An event of a run the phone started. It keeps the run's id after the run
+// left the list of active runs.
+function emit( run, event ) {
+	send( 'agent', {
+		runId: run.runId,
+		sessionId: run.sessionId,
+		event: { timestamp: new Date().toISOString(), ...event },
+	} );
+}
+
+function finish( run, events ) {
+	if ( run.done ) {
+		return;
+	}
+	run.done = true;
+	for ( const event of events ) {
+		emit( run, event );
+	}
+	// A run the phone started after stopping this one may hold the chat now.
+	if ( activeRuns.get( run.sessionId )?.runId === run.runId ) {
+		activeRuns.delete( run.sessionId );
+	}
+	if ( phoneRuns.get( run.sessionId ) === run ) {
+		phoneRuns.delete( run.sessionId );
+	}
+	runsById.delete( run.runId );
+	const summary = sessions.find( ( candidate ) => candidate.id === run.sessionId );
+	summary.updatedAt = new Date().toISOString();
+}
+
+// Writes a reply word by word, as streamReply does, and stops early when the
+// run is stopped. Returns false then.
+async function phoneReply( run, words ) {
+	let sofar = '';
+	for ( const word of words ) {
+		if ( run.stopped ) {
+			return false;
+		}
+		sofar += word;
+		const partial = assistant( [ text( sofar ) ] );
+		emit( run, { type: 'message', message: { type: 'message_update', message: partial } } );
+		await wait( STEP_MS / 10 );
+	}
+	const complete = assistant( [ text( sofar ) ] );
+	save( run.sessionId, message( complete ) );
+	emit( run, { type: 'message', message: { type: 'message_end', message: complete } } );
+	return ! run.stopped;
+}
+
+async function phoneTurn( run, prompt ) {
+	const { sessionId } = run;
+	if ( ! prompt.trim() ) {
+		// The computer's agent refuses a blank prompt and the run fails.
+		finish( run, [ { type: 'run.exited', status: 'error', code: 1 } ] );
+		return;
+	}
+	emit( run, { type: 'turn.started' } );
+	save( sessionId, userPrompt( prompt ) );
+	const user = { role: 'user', content: [ text( prompt ) ] };
+	save( sessionId, message( user ) );
+	emit( run, { type: 'message', message: { type: 'message_end', message: user } } );
+	await wait( STEP_MS / 2 );
+
+	let answers = null;
+	if ( prompt.includes( '?' ) ) {
+		if ( ! ( await phoneReply( run, [ 'Two ', 'questions ', 'first.' ] ) ) ) {
+			return;
+		}
+		save( sessionId, question( COLOR_QUESTION ) );
+		save( sessionId, question( PAGES_QUESTION ) );
+		activeRuns.get( sessionId ).pendingQuestions = [ COLOR_QUESTION, PAGES_QUESTION ];
+		emit( run, { type: 'question.asked', questions: [ COLOR_QUESTION, PAGES_QUESTION ] } );
+		// Never answered when the run is stopped while it waits: the computer
+		// kills it (see stopRun).
+		answers = await new Promise( ( resolve ) => ( run.answer = resolve ) );
+		for ( const asked of [ COLOR_QUESTION, PAGES_QUESTION ] ) {
+			const answer = answers?.[ asked.question ];
+			if ( typeof answer === 'string' && answer.trim() ) {
+				save( sessionId, userPrompt( answer, 'ask_user' ) );
+			}
+		}
+		activeRuns.get( sessionId ).pendingQuestions = [];
+		emit( run, { type: 'message', message: { type: 'message_start', message: assistant( [] ) } } );
+	}
+	const words = answers
+		? [ 'Done, ', 'with ', `${ Object.values( answers ).join( ' and ' ) }.` ]
+		: [
+				'Done. ',
+				'I looked ',
+				'at the site, ',
+				'changed ',
+				'what you ',
+				'asked for, ',
+				'and checked ',
+				'the pages ',
+				'again ',
+				'in a few ',
+				'small ',
+				'steps.',
+		  ];
+	if ( ! ( await phoneReply( run, words ) ) ) {
+		return;
+	}
+	save( sessionId, turnClosed( 'success' ) );
+	finish( run, [
+		{ type: 'turn.completed', sessionId, status: 'success', turnId: run.turnId },
+		{ type: 'run.exited', status: 'success', code: 0 },
+	] );
+}
+
+const killed = [ { type: 'run.interrupted' }, { type: 'run.exited', status: 'error', code: null } ];
+
+// As the computer does: the first stop asks the agent to stop and takes the
+// run off the list at once; the turn then closes. A second stop kills it, and
+// so does the computer 2 s after the first when the agent does not stop: an
+// agent that waits for answers ignores the stop.
+function stopRun( run ) {
+	run.attempts += 1;
+	if ( activeRuns.get( run.sessionId )?.runId === run.runId ) {
+		activeRuns.delete( run.sessionId );
+	}
+	if ( run.attempts > 1 ) {
+		finish( run, killed );
+		return;
+	}
+	run.stopped = true;
+	emit( run, { type: 'run.interrupting' } );
+	if ( run.answer ) {
+		setTimeout( () => finish( run, killed ), 2000 );
+		return;
+	}
+	setTimeout( () => {
+		if ( run.done ) {
+			return;
+		}
+		save( run.sessionId, turnClosed( 'interrupted' ) );
+		finish( run, [
+			{ type: 'turn.completed', sessionId: run.sessionId, status: 'error', turnId: run.turnId },
+			{ type: 'run.interrupted' },
+			{ type: 'run.exited', status: 'success', code: 0 },
+		] );
+	}, STEP_MS );
+}
+
+// `POST /api/sessions/:id/messages`, with the checks remote mode makes.
+function startPhoneRun( res, sessionId, body ) {
+	const keys = Object.keys( body );
+	const valid =
+		typeof body.prompt === 'string' &&
+		body.prompt.length > 0 &&
+		( body.turnId === undefined || typeof body.turnId === 'string' ) &&
+		keys.every( ( key ) => key === 'prompt' || key === 'turnId' );
+	if ( ! valid ) {
+		json( res, 400, { error: 'Remote mode accepts a text prompt only, without attachments' } );
+		return;
+	}
+	const summary = sessions.find( ( candidate ) => candidate.id === sessionId );
+	// The real server answers 500 for an unknown chat and for a busy one.
+	if ( ! summary || activeRuns.has( sessionId ) ) {
+		json( res, 500, { error: 'Internal error' } );
+		return;
+	}
+	const run = {
+		runId: randomUUID(),
+		sessionId,
+		turnId: body.turnId,
+		attempts: 0,
+		stopped: false,
+		done: false,
+		answer: null,
+	};
+	runsById.set( run.runId, run );
+	phoneRuns.set( sessionId, run );
+	activeRuns.set( sessionId, {
+		runId: run.runId,
+		sessionId,
+		startedAt: Date.now(),
+		phase: 'running',
+		pendingQuestions: [],
+	} );
+	summary.firstPrompt ??= body.prompt;
+	summary.updatedAt = new Date().toISOString();
+	// The computer sends this when the agent's process starts, which can be
+	// before it answers the request.
+	emit( run, { type: 'run.started' } );
+	json( res, 200, { runId: run.runId } );
+	void phoneTurn( run, body.prompt );
+}
 
 async function play() {
 	for ( let step = 0; ; step += 1 ) {
@@ -447,6 +683,28 @@ const server = http.createServer( async ( req, res ) => {
 		return;
 	}
 
+	const messageRoute = /^POST \/api\/sessions\/([^/?]+)\/messages$/.exec( route );
+	if ( messageRoute ) {
+		startPhoneRun( res, decodeURIComponent( messageRoute[ 1 ] ), await readBody( req ) );
+		return;
+	}
+	const runRoute = /^POST \/api\/runs\/([^/?]+)\/(answer|interrupt)$/.exec( route );
+	if ( runRoute ) {
+		const body = await readBody( req );
+		const run = runsById.get( decodeURIComponent( runRoute[ 1 ] ) );
+		// The real server answers 204 for any run id, and drops an answer
+		// nothing waits for.
+		if ( run && runRoute[ 2 ] === 'interrupt' ) {
+			stopRun( run );
+		} else if ( run?.answer ) {
+			const answer = run.answer;
+			run.answer = null;
+			answer( body.answers ?? {} );
+		}
+		res.writeHead( 204 ).end();
+		return;
+	}
+
 	const chatRoute = /^GET \/api\/sessions\/([^/?]+)$/.exec( route );
 	if ( chatRoute ) {
 		const id = decodeURIComponent( chatRoute[ 1 ] );
@@ -477,6 +735,21 @@ const server = http.createServer( async ( req, res ) => {
 		case 'GET /api/runs/active':
 			json( res, 200, [ ...activeRuns.values() ] );
 			return;
+		case 'POST /api/sessions': {
+			// A new chat, bound to the site when the computer knows it.
+			const body = await readBody( req );
+			const site = sites.find( ( candidate ) => candidate.id === body.siteId );
+			newChats += 1;
+			const id = `n${ newChats }`;
+			const summary = session( id, new Date().toISOString(), {
+				eventCount: site ? 1 : 0,
+				...( site ? ownedBy( site ) : {} ),
+			} );
+			sessions.push( summary );
+			chats.set( id, [ header( id ) ] );
+			json( res, 200, summary );
+			return;
+		}
 		case 'DELETE /api/remote/devices/current':
 			res.writeHead( 204 ).end();
 			return;
