@@ -121,8 +121,7 @@ function start( connection: Connection ) {
 		openChatId: selectedChatId,
 		onChatEvent: openChat.handle,
 		onRunEvent: ( chatId, event ) => {
-			const stopped = runControl.store.getState()[ chatId ]?.isInterrupting === true;
-			const moment = hapticMoments.moment( event, stopped );
+			const moment = hapticMoments.moment( event );
 			if ( moment ) {
 				playHaptic( moment );
 			}

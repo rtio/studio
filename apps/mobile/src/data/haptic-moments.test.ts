@@ -1,101 +1,99 @@
 import { describe, expect, it } from 'vitest';
 import { createHapticMoments } from './haptic-moments';
 
+type Step = [ type: string, status?: string ];
+
+// What the person feels for each event of one run, in the order the computer
+// sends them.
+function feel( steps: Step[], moments = createHapticMoments(), runId = 'run-1' ) {
+	return steps.map( ( [ type, status ] ) => moments.moment( { runId, type, status } ) );
+}
+
 describe( 'createHapticMoments', () => {
-	it( 'is felt when the agent asks a question and when its turn ends', () => {
-		const moments = createHapticMoments();
-
-		expect( moments.moment( { runId: 'run-1', type: 'question.asked' }, false ) ).toBe(
-			'needs-answer'
-		);
+	it( 'is felt when the agent asks a question, and once when its turn ends well', () => {
 		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'success' }, false )
-		).toBe( 'finished' );
-		expect(
-			moments.moment( { runId: 'run-2', type: 'turn.completed', status: 'error' }, false )
-		).toBe( 'failed' );
-		expect(
-			moments.moment( { runId: 'run-3', type: 'turn.completed', status: 'max_turns' }, false )
-		).toBe( 'failed' );
+			feel( [
+				[ 'run.started' ],
+				[ 'question.asked' ],
+				[ 'turn.completed', 'paused' ],
+				[ 'message' ],
+				[ 'turn.completed', 'success' ],
+				[ 'run.exited', 'success' ],
+			] )
+		).toEqual( [ null, 'needs-answer', null, null, 'finished', null ] );
 	} );
 
-	it( 'is not felt when a turn pauses for answers, nor for the rest of a run', () => {
-		const moments = createHapticMoments();
-
+	it( 'is felt as a failure when the run of a failed turn exits', () => {
 		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'paused' }, false )
-		).toBeNull();
-		for ( const type of [ 'run.started', 'message', 'run.exited', 'run.interrupted' ] ) {
-			expect( moments.moment( { runId: 'run-1', type }, false ) ).toBeNull();
-		}
+			feel( [
+				[ 'turn.completed', 'error' ],
+				[ 'run.exited', 'success' ],
+			] )
+		).toEqual( [ null, 'failed' ] );
+		expect(
+			feel( [
+				[ 'turn.completed', 'max_turns' ],
+				[ 'run.exited', 'success' ],
+			] )
+		).toEqual( [ null, 'failed' ] );
 	} );
 
-	it( 'is not felt when a stopped turn ends, and forgets the stop once the run is over', () => {
-		const moments = createHapticMoments();
-
-		moments.moment( { runId: 'run-1', type: 'run.interrupting' }, false );
+	it( 'is felt as a failure when a run exits with an error before its turn ended', () => {
+		expect( feel( [ [ 'run.started' ], [ 'run.exited', 'error' ] ] ) ).toEqual( [
+			null,
+			'failed',
+		] );
+		// A paused turn did not end.
 		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'error' }, false )
-		).toBeNull();
-		// Another run is not stopped.
-		expect(
-			moments.moment( { runId: 'run-2', type: 'turn.completed', status: 'error' }, false )
-		).toBe( 'failed' );
-
-		moments.moment( { runId: 'run-1', type: 'run.exited' }, false );
-		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'error' }, false )
-		).toBe( 'failed' );
+			feel( [
+				[ 'turn.completed', 'paused' ],
+				[ 'run.exited', 'error' ],
+			] )
+		).toEqual( [ null, 'failed' ] );
 	} );
 
-	it( 'is not felt when the phone stopped the run, also if the computer did not say so', () => {
-		const moments = createHapticMoments();
-
-		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'error' }, true )
-		).toBeNull();
+	it( 'is not felt when a stopped run ends, whichever stop event arrived', () => {
+		const stopped: Step[] = [
+			[ 'run.interrupting' ],
+			[ 'turn.completed', 'error' ],
+			[ 'run.interrupted' ],
+			[ 'run.exited', 'error' ],
+		];
+		expect( feel( stopped ) ).toEqual( [ null, null, null, null ] );
+		// A reconnect lost `run.interrupting`.
+		expect( feel( stopped.slice( 1 ) ) ).toEqual( [ null, null, null ] );
+		// The agent was killed before its turn ended.
+		expect( feel( [ [ 'run.interrupted' ], [ 'run.exited', 'error' ] ] ) ).toEqual( [
+			null,
+			null,
+		] );
+		// It ended well before the stop took hold.
+		expect( feel( [ [ 'run.interrupting' ], [ 'turn.completed', 'success' ] ] ) ).toEqual( [
+			null,
+			null,
+		] );
 	} );
 
-	it( 'is felt as a failure when a run ends with an error before its turn did', () => {
+	it( 'keeps runs apart, and forgets a run once it exited', () => {
 		const moments = createHapticMoments();
+		feel( [ [ 'run.interrupting' ] ], moments, 'run-1' );
 
-		expect( moments.moment( { runId: 'run-1', type: 'run.exited', status: 'error' }, false ) ).toBe(
-			'failed'
-		);
+		expect( feel( [ [ 'turn.completed', 'success' ] ], moments, 'run-2' ) ).toEqual( [
+			'finished',
+		] );
 
-		// A turn that ended already was felt then.
-		moments.moment( { runId: 'run-2', type: 'turn.completed', status: 'error' }, false );
-		expect(
-			moments.moment( { runId: 'run-2', type: 'run.exited', status: 'error' }, false )
-		).toBeNull();
-
-		// A paused turn did not end: the crash after it is felt.
-		moments.moment( { runId: 'run-3', type: 'turn.completed', status: 'paused' }, false );
-		expect( moments.moment( { runId: 'run-3', type: 'run.exited', status: 'error' }, false ) ).toBe(
-			'failed'
-		);
-
-		// Nor a stopped run, nor one that ended well.
-		moments.moment( { runId: 'run-4', type: 'run.interrupting' }, false );
-		expect(
-			moments.moment( { runId: 'run-4', type: 'run.exited', status: 'error' }, false )
-		).toBeNull();
-		expect(
-			moments.moment( { runId: 'run-5', type: 'run.exited', status: 'error' }, true )
-		).toBeNull();
-		expect(
-			moments.moment( { runId: 'run-6', type: 'run.exited', status: 'success' }, false )
-		).toBeNull();
+		feel( [ [ 'run.exited', 'error' ] ], moments, 'run-1' );
+		expect( feel( [ [ 'turn.completed', 'success' ] ], moments, 'run-1' ) ).toEqual( [
+			'finished',
+		] );
 	} );
 
 	it( 'forgets the stops for another computer', () => {
 		const moments = createHapticMoments();
-		moments.moment( { runId: 'run-1', type: 'run.interrupting' }, false );
+		feel( [ [ 'run.interrupting' ] ], moments );
 
 		moments.clear();
 
-		expect(
-			moments.moment( { runId: 'run-1', type: 'turn.completed', status: 'error' }, false )
-		).toBe( 'failed' );
+		expect( feel( [ [ 'turn.completed', 'success' ] ], moments ) ).toEqual( [ 'finished' ] );
 	} );
 } );
