@@ -38,8 +38,8 @@ interface ComposerProps {
 // How long a Stop may take before the composer says it is not answered.
 const STOP_STUCK_MS = 5000;
 
-// When each run's Stop began, by run (or by chat before the computer named
-// the run), so the time counts on while another chat is open.
+// When each run's Stop began, by run id, so the time counts on while another
+// chat is open. Run ids are never reused.
 const stopStarts = new Map< string, number >();
 
 function actionLabel( action: ComposerAction ): string {
@@ -92,9 +92,10 @@ export function Composer( { chatId, draftId, onSend, offline, blocked }: Compose
 
 	// The computer kills a stopped agent after 2 s. Still stopping after this
 	// long means something is wrong, and Force stop is the way out. Each run
-	// counts from its own Stop.
+	// counts from its own Stop; a Stop pressed before the computer named the
+	// run counts once it is named.
 	const interrupting = state.isInterrupting && state.phase !== 'idle';
-	const stopKey = interrupting ? state.runId ?? chatId : null;
+	const stopKey = interrupting ? state.runId : null;
 	const [ stuckKey, setStuckKey ] = useState< string | null >( null );
 	useEffect( () => {
 		if ( stopKey === null ) {
