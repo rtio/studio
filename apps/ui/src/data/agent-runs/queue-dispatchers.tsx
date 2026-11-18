@@ -1,10 +1,10 @@
 import { getEffectiveSessionProvider } from '@studio/agent/protocol/sessions/model';
+import { initialAgentRunState } from '@studio/agent/protocol/transcript/run-state';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSession } from '@/data/queries/use-sessions';
 import { useAgentRunStore } from './context';
-import { initialAgentRunState } from './store';
 
 // One dispatcher per session with queued prompts, so a queue keeps draining
 // after its chat is closed.

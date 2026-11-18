@@ -1,8 +1,6 @@
-import type {
-	StudioChatFileAttachment,
-	StudioChatImage,
-	StudioVisualAnnotationSummary,
-} from '@/data/core';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export interface PendingQuestion {
 	question: string;

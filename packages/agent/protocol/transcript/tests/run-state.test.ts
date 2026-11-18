@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createSessionStateStore, hasUnansweredQuestion } from './store';
+import {
+	createSessionStateStore,
+	hasUnansweredQuestion,
+} from '@studio/agent/protocol/transcript/run-state';
 
 describe( 'createSessionStateStore', () => {
 	it( "keeps a session's slice when another session changes", () => {

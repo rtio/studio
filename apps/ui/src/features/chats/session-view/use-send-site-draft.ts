@@ -6,8 +6,8 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
-import type { SendMessageOptions } from '@/data/agent-runs/store';
 import type { AiModelId, LoadedAiSession } from '@/data/core';
+import type { SendMessageOptions } from '@studio/agent/protocol/transcript/run-state';
 import type { ProviderId } from '@studio/providers';
 
 export function useSendSiteDraft( siteId: string | undefined ) {

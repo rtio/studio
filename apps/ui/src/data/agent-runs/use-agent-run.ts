@@ -1,14 +1,14 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
-import { useAgentRunStore } from './context';
 import {
 	hasUnansweredQuestion,
 	initialAgentRunState,
 	type PendingQuestion,
 	type QueuedPrompt,
 	type SendMessageOptions,
-} from './store';
+} from '@studio/agent/protocol/transcript/run-state';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useAgentRunStore } from './context';
 
-export type { QueuedPrompt } from './store';
+export type { QueuedPrompt } from '@studio/agent/protocol/transcript/run-state';
 
 interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at

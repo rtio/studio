@@ -1,5 +1,9 @@
 import { createContext, useContext } from 'react';
-import type { AgentRunAction, SendMessageOptions, SessionStateStore } from './store';
+import type {
+	AgentRunAction,
+	SendMessageOptions,
+	SessionStateStore,
+} from '@studio/agent/protocol/transcript/run-state';
 
 export interface AgentRunStore {
 	stateStore: SessionStateStore;

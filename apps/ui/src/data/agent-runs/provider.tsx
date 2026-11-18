@@ -4,6 +4,12 @@ import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry
 import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import {
+	createSessionStateStore,
+	initialAgentRunState,
+	type AgentRunAction,
+	type SendMessageOptions,
+} from '@studio/agent/protocol/transcript/run-state';
+import {
 	streamingReplyEntry,
 	type StreamingReply,
 } from '@studio/agent/protocol/transcript/streaming-reply';
@@ -16,12 +22,6 @@ import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { AgentRunContext, type AgentRunStore } from './context';
 import { QueueDispatchers } from './queue-dispatchers';
-import {
-	createSessionStateStore,
-	initialAgentRunState,
-	type AgentRunAction,
-	type SendMessageOptions,
-} from './store';
 import type {
 	AgentEvent,
 	AgentRunEvent,
