@@ -1,5 +1,6 @@
 import { uuid } from 'expo';
 import { AppState } from 'react-native';
+import { z } from 'zod';
 import { createConnectionClient, reportUnauthorized } from '../connection/connection';
 import { openEventStream } from '../connection/open-event-stream';
 import { verifyComputer } from '../connection/verify-computer';
@@ -14,6 +15,7 @@ import { parseActiveRuns } from './remote-schemas';
 import { createRunControl } from './run-control';
 import {
 	resetSelection,
+	selectChat,
 	selectedChatId,
 	selectedSiteId,
 	selectSite,
@@ -156,4 +158,23 @@ export function syncLiveConnection( connection: Connection | null ): void {
 // Tries the computer again now. For a "Try again" button.
 export function reconnectNow(): void {
 	live?.reconnect();
+}
+
+const createdChatSchema = z.object( { id: z.string() } );
+
+// Makes a chat for the site on the computer, opens it, and sends it the first
+// prompt. Rejects when either step failed; a chat that was made stays open.
+export async function startChat( siteId: string, text: string ): Promise< void > {
+	if ( ! text.trim() ) {
+		return;
+	}
+	if ( ! live || liveStatusStore.get() !== 'live' ) {
+		throw new Error( 'Not connected' );
+	}
+	const created = await createConnectionClient( live.connection ).post( '/api/sessions', {
+		siteId,
+	} );
+	const { id } = createdChatSchema.parse( created );
+	selectChat( id );
+	await runControl.send( id, text );
 }

@@ -1,13 +1,13 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Menu } from 'lucide-react-native';
+import { Menu, SquarePen } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConnectionState } from '../../connection/connection';
-import { reconnectNow, runControl } from '../../data/live-connection';
-import { useSelectedChatId, useSelectedSiteId } from '../../data/selection';
+import { reconnectNow, runControl, startChat } from '../../data/live-connection';
+import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '../../data/selection';
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
 import { space } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
@@ -49,14 +49,35 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const { chats } = useChats( connection );
 	const status = useLiveStatus();
 	const selectedSiteId = useSelectedSiteId();
-	const selectedChatId = useSelectedChatId();
+	const chatId = useSelectedChatId();
 
-	const chat = chats.find( ( candidate ) => candidate.id === selectedChatId ) ?? null;
+	const chat = chats.find( ( candidate ) => candidate.id === chatId ) ?? null;
 	// An open chat names its own site. Without one, the header names the site
-	// chosen in the drawer.
+	// chosen in the drawer. A chat just made for that site is not listed until
+	// its run starts.
 	const siteId = chat ? chat.siteId : selectedSiteId;
 	const site = sites.data?.find( ( candidate ) => candidate.id === siteId ) ?? null;
 	const siteName = site?.name ?? chat?.siteName ?? __( 'All chats' );
+
+	// A new chat is for the site in the header.
+	const newChat = () => {
+		if ( siteId ) {
+			selectSite( siteId );
+		}
+		selectChat( null );
+	};
+	let blocked: string | null = null;
+	if ( status !== 'live' ) {
+		blocked = __( 'Messages go out when your computer is connected.' );
+	} else if ( ! chatId && ! siteId ) {
+		blocked = __( 'Choose a site in the menu to start a chat.' );
+	}
+	const send = ( text: string ) => {
+		if ( chatId ) {
+			return runControl.send( chatId, text );
+		}
+		return siteId ? startChat( siteId, text ) : Promise.reject( new Error( 'No site' ) );
+	};
 
 	return (
 		<AppDrawer
@@ -84,39 +105,35 @@ function PairedHome( { connection }: { connection: Connection } ) {
 				{ /* Positions what floats here inside the space the keyboard leaves. */ }
 				<View style={ styles.screen }>
 					<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
-					{ chat ? (
+					{ chatId ? (
 						<ChatView
-							key={ chat.id }
+							key={ chatId }
 							connection={ connection }
-							chatId={ chat.id }
+							chatId={ chatId }
 							topInset={ topHeight }
 							bottomInset={ bottomHeight + space[ 2 ] }
 						/>
 					) : (
-						<View style={ [ styles.body, { paddingTop: topHeight } ] }>
+						<View style={ [ styles.body, { paddingTop: topHeight, paddingBottom: bottomHeight } ] }>
 							<Text variant="title">{ __( 'What should we build?' ) }</Text>
 							<Text color="mutedForeground">
-								{ __( 'Open the menu to choose a site and a chat.' ) }
+								{ site
+									? sprintf(
+											/* translators: %s: the name of a site. */
+											__( 'Start a new chat about %s, or open the menu to pick another chat.' ),
+											site.name
+									  )
+									: __( 'Open the menu to choose a site and a chat.' ) }
 							</Text>
 						</View>
 					) }
 
-					{ chat && (
-						<View
-							onLayout={ ( event ) => setBottomHeight( event.nativeEvent.layout.height ) }
-							style={ [ styles.bottom, { paddingBottom: insets.bottom + space[ 2 ] } ] }
-						>
-							<Composer
-								chatId={ chat.id }
-								onSend={ ( text ) => runControl.send( chat.id, text ) }
-								blocked={
-									status === 'live'
-										? null
-										: __( 'Messages go out when your computer is connected.' )
-								}
-							/>
-						</View>
-					) }
+					<View
+						onLayout={ ( event ) => setBottomHeight( event.nativeEvent.layout.height ) }
+						style={ [ styles.bottom, { paddingBottom: insets.bottom + space[ 2 ] } ] }
+					>
+						<Composer chatId={ chatId } onSend={ send } blocked={ blocked } />
+					</View>
 
 					<View
 						onLayout={ ( event ) => setTopHeight( event.nativeEvent.layout.height ) }
@@ -145,7 +162,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 									) }
 								</FloatingSurface>
 							</Pressable>
-							<View style={ styles.headerEnd } />
+							<IconButton icon={ SquarePen } label={ __( 'New chat' ) } onPress={ newChat } />
 						</View>
 
 						{ status !== 'live' && (
@@ -207,9 +224,6 @@ const styles = StyleSheet.create( {
 		gap: space[ 2 ],
 	},
 	capsuleText: { flexShrink: 1 },
-	// As wide as the menu button, so the capsule sits in the middle. The "new
-	// chat" button takes this place when the chat arrives.
-	headerEnd: { width: 44 },
 	banner: {
 		marginHorizontal: space[ 4 ],
 		marginTop: space[ 3 ],
