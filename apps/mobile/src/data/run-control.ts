@@ -429,10 +429,12 @@ export function createRunControl( parts: RunControlParts ): RunControl {
 				before !== null && revisions.get( chatId ) !== before.get( chatId );
 			const listed = new Map( runs.map( ( run ) => [ run.sessionId, run ] ) );
 			for ( const [ chatId, state ] of Object.entries( store.getState() ) ) {
-				// A chat whose send is on its way is not listed yet.
+				// A chat whose send is on its way is not listed yet, also when it
+				// was stopped before the computer named its run.
 				if (
 					state.phase === 'idle' ||
 					state.phase === 'starting' ||
+					stopOnStart.has( chatId ) ||
 					listed.has( chatId ) ||
 					changed( chatId )
 				) {

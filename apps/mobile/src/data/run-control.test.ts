@@ -387,6 +387,36 @@ describe( 'createRunControl', () => {
 		expect( requests ).toHaveLength( 1 );
 	} );
 
+	it( 'leaves alone a chat whose send is on its way, also when it was stopped', async () => {
+		const { control, requests, state } = setup();
+		const sent = control.send( 'chat-1', 'Add a blog' );
+		await control.send( 'chat-1', 'Then add a menu' );
+		await control.stop( 'chat-1' );
+
+		control.beginHydrate();
+		control.hydrate( [] );
+		await settle();
+
+		expect( requests ).toHaveLength( 1 );
+		expect( state() ).toMatchObject( {
+			isInterrupting: true,
+			queuedPrompts: [ { prompt: 'Then add a menu' } ],
+		} );
+		requests[ 0 ].resolve( { runId: 'run-1' } );
+		await sent;
+		expect( requests[ 1 ].path ).toBe( '/api/runs/run-1/interrupt' );
+	} );
+
+	it( 'leaves alone a chat that changed while the list was read, though the list lacks it', () => {
+		const { control, state, handle } = setup();
+
+		control.beginHydrate();
+		handle( 'run.started' );
+		control.hydrate( [] );
+
+		expect( state() ).toMatchObject( { phase: 'running', runId: 'run-1' } );
+	} );
+
 	describe( 'a stopped run the computer no longer lists', () => {
 		afterEach( () => {
 			vi.useRealTimers();
