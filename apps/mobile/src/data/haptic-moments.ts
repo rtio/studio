@@ -7,9 +7,13 @@ export type HapticMoment = 'needs-answer' | 'finished' | 'failed';
 // question, or its turn ended. A turn that ends because someone pressed Stop,
 // here or on the computer, is felt as nothing: the computer says it is
 // stopping (`run.interrupting`) before the turn's end arrives with an error,
-// and the phone knows its own Stop even when a reconnect lost that event.
+// and the phone knows its own Stop even when a reconnect lost that event. A
+// run that ends with an error before its turn did (the agent crashed) is felt
+// as a failure.
 export function createHapticMoments() {
 	const stopping = new Set< string >();
+	// Runs whose turn ended for good (not paused for answers).
+	const turnEnded = new Set< string >();
 
 	return {
 		// `stopped`: the phone asked the chat's run to stop.
@@ -20,11 +24,21 @@ export function createHapticMoments() {
 				case 'run.interrupting':
 					stopping.add( event.runId );
 					return null;
-				case 'run.interrupted':
-				case 'run.exited':
+				case 'run.exited': {
+					// The computer's last event of a run.
+					const crashed =
+						event.status === 'error' &&
+						! turnEnded.has( event.runId ) &&
+						! stopped &&
+						! stopping.has( event.runId );
 					stopping.delete( event.runId );
-					return null;
+					turnEnded.delete( event.runId );
+					return crashed ? 'failed' : null;
+				}
 				case 'turn.completed':
+					if ( event.status !== 'paused' ) {
+						turnEnded.add( event.runId );
+					}
 					if ( stopped || stopping.has( event.runId ) ) {
 						return null;
 					}
@@ -40,6 +54,7 @@ export function createHapticMoments() {
 		// Another computer, or none.
 		clear() {
 			stopping.clear();
+			turnEnded.clear();
 		},
 	};
 }

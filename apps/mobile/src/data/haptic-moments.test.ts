@@ -56,6 +56,38 @@ describe( 'createHapticMoments', () => {
 		).toBeNull();
 	} );
 
+	it( 'is felt as a failure when a run ends with an error before its turn did', () => {
+		const moments = createHapticMoments();
+
+		expect( moments.moment( { runId: 'run-1', type: 'run.exited', status: 'error' }, false ) ).toBe(
+			'failed'
+		);
+
+		// A turn that ended already was felt then.
+		moments.moment( { runId: 'run-2', type: 'turn.completed', status: 'error' }, false );
+		expect(
+			moments.moment( { runId: 'run-2', type: 'run.exited', status: 'error' }, false )
+		).toBeNull();
+
+		// A paused turn did not end: the crash after it is felt.
+		moments.moment( { runId: 'run-3', type: 'turn.completed', status: 'paused' }, false );
+		expect( moments.moment( { runId: 'run-3', type: 'run.exited', status: 'error' }, false ) ).toBe(
+			'failed'
+		);
+
+		// Nor a stopped run, nor one that ended well.
+		moments.moment( { runId: 'run-4', type: 'run.interrupting' }, false );
+		expect(
+			moments.moment( { runId: 'run-4', type: 'run.exited', status: 'error' }, false )
+		).toBeNull();
+		expect(
+			moments.moment( { runId: 'run-5', type: 'run.exited', status: 'error' }, true )
+		).toBeNull();
+		expect(
+			moments.moment( { runId: 'run-6', type: 'run.exited', status: 'success' }, false )
+		).toBeNull();
+	} );
+
 	it( 'forgets the stops for another computer', () => {
 		const moments = createHapticMoments();
 		moments.moment( { runId: 'run-1', type: 'run.interrupting' }, false );
