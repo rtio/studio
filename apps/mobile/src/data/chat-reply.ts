@@ -15,6 +15,9 @@ export interface ChatEvent {
 	text?: string;
 	// For a `question.asked` event: the questions.
 	questions?: PendingQuestion[];
+	// For a `turn.completed` event: `success`, `error`, `paused` (it waits for
+	// answers) or `max_turns`.
+	status?: string;
 }
 
 // An assistant message the stream showed. `endedAt` is the mark of its

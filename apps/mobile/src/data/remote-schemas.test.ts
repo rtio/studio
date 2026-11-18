@@ -246,6 +246,15 @@ describe( 'parseStreamMessage', () => {
 		} );
 	} );
 
+	it( 'reads the status of a turn.completed event', () => {
+		const data =
+			'{"channel":"agent","payload":{"runId":"run-1","sessionId":"chat-1","event":{"type":"turn.completed","timestamp":"2026-11-18T10:00:00.000Z","sessionId":"chat-1","status":"error"}}}';
+
+		expect( parseStreamMessage( data ) ).toMatchObject( {
+			payload: { event: { type: 'turn.completed', status: 'error' } },
+		} );
+	} );
+
 	it( 'reads a site event with the site it is about', () => {
 		const data =
 			'{"channel":"site-event","payload":{"event":"site-updated","siteId":"s1","running":true,"site":{"id":"s1","name":"My site","running":true,"url":"http://localhost:8881"}}}';

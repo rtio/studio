@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { runControl } from '../../data/live-connection';
 import { useRunNotice, useRunState } from '../../data/use-run';
+import { playHaptic } from '../../feedback/haptics';
 import { space, textStyles } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
 import { FloatingSurface } from '../../ui/FloatingSurface';
@@ -108,6 +109,7 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 		const own = ( id: string | null | undefined ) =>
 			id === from || ( from === null && id !== null && id === madeChatId.current );
 		setFailed( false );
+		playHaptic( 'send' );
 		// Cleared before the request, and put back if it fails.
 		setText( '' );
 		setSendingIn( from );

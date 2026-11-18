@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useConnectionState } from '../../connection/connection';
 import { forgetThisComputer } from '../../data/connection-actions';
+import { hapticsPreference, useHapticsPreference } from '../../feedback/haptics';
 import { colorSchemePreference, useColorSchemePreference } from '../../theme/color-scheme';
 import { space } from '../../theme/typography';
 import { Button } from '../../ui/Button';
@@ -13,14 +14,17 @@ import { ChoiceRow } from '../../ui/ChoiceRow';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { IconButton } from '../../ui/IconButton';
 import { Screen } from '../../ui/Screen';
+import { SwitchRow } from '../../ui/SwitchRow';
 import { Text } from '../../ui/Text';
 import type { ColorSchemePreference } from '../../theme/color-scheme-preference';
 
-// The paired computer with "Forget this computer", the theme, and the version.
+// The paired computer with "Forget this computer", the theme, haptics, and the
+// version.
 export function SettingsScreen() {
 	const router = useRouter();
 	const state = useConnectionState();
 	const preference = useColorSchemePreference();
+	const haptics = useHapticsPreference();
 	const [ asking, setAsking ] = useState( false );
 	const [ forgetting, setForgetting ] = useState( false );
 	const connection = state.status === 'ready' ? state.connection : null;
@@ -80,6 +84,16 @@ export function SettingsScreen() {
 				/>
 			</View>
 
+			<View style={ styles.section }>
+				<Text variant="label" color="mutedForeground">
+					{ __( 'Haptics' ) }
+				</Text>
+				<SwitchRow
+					label={ __( 'On send, when a question waits, and when a turn ends' ) }
+					value={ haptics }
+					onValueChange={ ( on ) => void hapticsPreference.set( on ) }
+				/>
+			</View>
 			<View style={ styles.section }>
 				<Text variant="label" color="mutedForeground">
 					{ __( 'Version' ) }

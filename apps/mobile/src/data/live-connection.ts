@@ -4,9 +4,11 @@ import { z } from 'zod';
 import { createConnectionClient, reportUnauthorized } from '../connection/connection';
 import { openEventStream } from '../connection/open-event-stream';
 import { verifyComputer } from '../connection/verify-computer';
+import { playHaptic } from '../feedback/haptics';
 import { createValueStore } from '../lib/value-store';
 import { withUpdatedSite } from './chat-list';
 import { requestChatRead } from './chat-read';
+import { createHapticMoments } from './haptic-moments';
 import { startLiveSession } from './live-session';
 import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
@@ -59,6 +61,9 @@ export const runControl = createRunControl( {
 	dropPrompt: ( chatId, key ) => openChat.dropPrompt( chatId, key ),
 } );
 
+// Which events of the stream the person feels.
+const hapticMoments = createHapticMoments();
+
 // The open chat changes as soon as the person chooses a chat, before the
 // screen draws it, so a prompt sent to a chat just created shows in it.
 subscribeSelectedChat( () => {
@@ -109,7 +114,13 @@ function start( connection: Connection ) {
 		},
 		openChatId: selectedChatId,
 		onChatEvent: openChat.handle,
-		onRunEvent: runControl.handle,
+		onRunEvent: ( chatId, event ) => {
+			const moment = hapticMoments.moment( event );
+			if ( moment ) {
+				playHaptic( moment );
+			}
+			runControl.handle( chatId, event );
+		},
 		onActiveRunsRead: runControl.beginHydrate,
 		onActiveRuns: runControl.hydrate,
 	} );
@@ -146,6 +157,7 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	live?.stop();
 	live = null;
 	activityStore.set( {} );
+	hapticMoments.clear();
 	openChat.clear();
 	runControl.clear();
 	resetSelection();

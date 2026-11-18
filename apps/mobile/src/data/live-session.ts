@@ -120,6 +120,7 @@ export function startLiveSession( parts: LiveSessionParts ): LiveSession {
 				inner: event.inner,
 				text: event.text,
 				questions: event.questions,
+				status: event.status,
 			};
 			duringReload?.push( info );
 			activity.set( applyAgentEvent( activity.get(), info ) );

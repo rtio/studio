@@ -144,6 +144,7 @@ const agentEventSchema = z
 		timestamp: z.string().optional(),
 		message: z.unknown().optional(),
 		questions: z.unknown().optional(),
+		status: z.string().optional(),
 	} )
 	.transform( ( event ) => {
 		const wrapped = event.message;
@@ -160,6 +161,7 @@ const agentEventSchema = z
 			inner,
 			text: typeof wrapped === 'string' ? wrapped : undefined,
 			questions: event.questions === undefined ? undefined : parseQuestions( event.questions ),
+			status: event.status,
 		};
 	} );
 
