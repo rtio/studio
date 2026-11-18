@@ -9,6 +9,7 @@ import { useTheme } from '../../theme/use-theme';
 import { FloatingSurface } from '../../ui/FloatingSurface';
 import { SendButton } from '../../ui/SendButton';
 import { Text } from '../../ui/Text';
+import { QueuedPrompts } from './QueuedPrompts';
 import { composerAction } from './composer-action';
 import type { ComposerAction } from './composer-action';
 import type { RunNotice } from '../../data/run-control';
@@ -124,6 +125,7 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 
 	return (
 		<View style={ styles.composer }>
+			{ chatId && <QueuedPrompts chatId={ chatId } prompts={ state.queuedPrompts } /> }
 			{ message ? (
 				<Text
 					variant="caption"
