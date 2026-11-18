@@ -24,7 +24,14 @@ export type ToolState = 'running' | 'done' | 'failed' | 'stopped';
 // One row of the chat list. The transcript items come from the code the
 // computer's own chat view uses; these rows are how the phone lays them out.
 export type ChatRow =
-	| { kind: 'user'; key: string; text: string }
+	| {
+			kind: 'user';
+			key: string;
+			text: string;
+			// Nothing but text: no image, no file, no note on the page. Only such
+			// a message can go into the composer as it was.
+			textOnly: boolean;
+	  }
 	| { kind: 'assistant'; key: string; text: string; streaming: boolean }
 	| {
 			kind: 'turn';
@@ -92,7 +99,12 @@ function artifactText( widgets: StudioChatArtifactWidgetDraft[] ): string {
 function pushItem( rows: ChatRow[], item: InnerItem | Exclude< TranscriptItem, TurnActivity > ) {
 	switch ( item.kind ) {
 		case 'user-text':
-			rows.push( { kind: 'user', key: item.key, text: item.text } );
+			rows.push( {
+				kind: 'user',
+				key: item.key,
+				text: item.text,
+				textOnly: ! item.annotation && ! item.attachments?.length,
+			} );
 			return;
 		case 'assistant-text':
 			rows.push( {

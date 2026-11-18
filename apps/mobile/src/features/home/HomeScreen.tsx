@@ -12,6 +12,7 @@ import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '..
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
 import { space } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
+import { ActionSheetHost } from '../../ui/ActionSheetHost';
 import { Button } from '../../ui/Button';
 import { FloatingSurface } from '../../ui/FloatingSurface';
 import { IconButton } from '../../ui/IconButton';
@@ -200,6 +201,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 					</View>
 				</View>
 			</KeyboardAvoidingView>
+			<ActionSheetHost />
 		</AppDrawer>
 	);
 }

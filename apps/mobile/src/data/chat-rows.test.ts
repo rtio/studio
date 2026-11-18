@@ -78,6 +78,35 @@ describe( 'chatRows', () => {
 		expect( rows[ 2 ] ).toMatchObject( { state: 'running' } );
 	} );
 
+	it( 'marks a message with a file or a note on the page as more than text', () => {
+		const withFile = {
+			...promptEntry( 'Use this brief' ),
+			data: {
+				text: 'Use this brief',
+				source: 'prompt',
+				attachments: [ { kind: 'file', id: 'f1', name: 'brief.pdf' } ],
+			},
+		} as SessionEntry;
+		const withNote = {
+			...promptEntry( 'Notes' ),
+			data: {
+				text: 'Notes',
+				source: 'prompt',
+				visualAnnotations: [ { comment: 'Make this blue' } ],
+			},
+		} as SessionEntry;
+
+		const users = rowsOf( [ promptEntry( 'Add a menu' ), withFile, withNote ] ).flatMap( ( row ) =>
+			row.kind === 'user' ? [ [ row.text, row.textOnly ] ] : []
+		);
+
+		expect( users ).toEqual( [
+			[ 'Add a menu', true ],
+			[ 'Use this brief', false ],
+			[ 'Make this blue', false ],
+		] );
+	} );
+
 	it( "gives a running turn its run's start, and else the prompt's time", () => {
 		const entries = [
 			promptEntry( 'Add a header' ),

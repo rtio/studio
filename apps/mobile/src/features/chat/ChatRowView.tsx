@@ -5,6 +5,7 @@ import {
 } from '@studio/agent/protocol/tools';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import * as Clipboard from 'expo-clipboard';
 import {
 	Check,
 	ChevronDown,
@@ -17,8 +18,10 @@ import {
 	TriangleAlert,
 } from 'lucide-react-native';
 import { memo, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { drafts } from '../../data/drafts';
 import { runControl } from '../../data/live-connection';
+import { useLiveStatus } from '../../data/use-remote-data';
 import { useRunState, useSentAnswers } from '../../data/use-run';
 import { formatElapsed } from '../../lib/elapsed';
 import { useNow } from '../../lib/use-now';
@@ -27,12 +30,16 @@ import { useTheme } from '../../theme/use-theme';
 import { Button } from '../../ui/Button';
 import { Spinner } from '../../ui/Spinner';
 import { Text } from '../../ui/Text';
+import { openActionSheet } from '../../ui/action-sheet';
 import { Markdown } from './Markdown';
 import { armQuestion, disarmQuestion, useArmedQuestion } from './armed-question';
+import { messageActions } from './message-actions';
 import { answerLabels, questionView, shownPicks, toggleLabel } from './question-card';
+import type { MessageAction } from './message-actions';
 import type { ChatRow, ToolState } from '../../data/chat-rows';
 import type { ThemeColors } from '../../theme/theme';
 import type { AgentQuestionRenderItem } from '@studio/agent/protocol/transcript/transcript-items';
+import type { ReactNode } from 'react';
 
 const ICON_SIZE = 16;
 
@@ -60,12 +67,18 @@ export const ChatRowView = memo( function ChatRowView( {
 }: ChatRowViewProps ) {
 	switch ( row.kind ) {
 		case 'user':
-			return <UserBubble text={ row.text } />;
+			return (
+				<WithActions row={ row } chatId={ chatId } text={ row.text }>
+					<UserBubble text={ row.text } />
+				</WithActions>
+			);
 		case 'assistant':
 			return (
-				<View style={ styles.assistant }>
-					<Markdown text={ row.text } streaming={ row.streaming } />
-				</View>
+				<WithActions row={ row } chatId={ chatId } text={ row.text }>
+					<View style={ styles.assistant }>
+						<Markdown text={ row.text } streaming={ row.streaming } />
+					</View>
+				</WithActions>
 			);
 		case 'turn':
 			return <TurnLine row={ row } onToggle={ onToggleTurn } />;
@@ -78,12 +91,87 @@ export const ChatRowView = memo( function ChatRowView( {
 	}
 }, sameRow );
 
+function actionLabel( action: MessageAction ): string {
+	switch ( action ) {
+		case 'copy':
+			return __( 'Copy' );
+		case 'edit':
+			return __( 'Edit' );
+		case 'send-again':
+			return __( 'Send again' );
+		case 'share':
+			return __( 'Share' );
+	}
+}
+
+function runAction( action: MessageAction, chatId: string, text: string ) {
+	switch ( action ) {
+		case 'copy':
+			void Clipboard.setStringAsync( text ).catch( () => undefined );
+			return;
+		case 'edit':
+			// Into this chat's composer, in place of what was there.
+			drafts.set( chatId, text );
+			return;
+		case 'send-again': {
+			// Queued as any message is while the agent works. A refusal puts the
+			// text in the composer with its notice.
+			const since = drafts.generation();
+			runControl.send( chatId, text ).catch( () => drafts.fail( chatId, text, since ) );
+			return;
+		}
+		case 'share':
+			void Share.share( { message: text } ).catch( () => undefined );
+	}
+}
+
+// A message that a long press acts on: copy, edit, send again or share. The
+// text itself is not selectable: the long press is the menu.
+function WithActions( {
+	row,
+	chatId,
+	text,
+	children,
+}: {
+	row: ChatRow;
+	chatId: string;
+	text: string;
+	children: ReactNode;
+} ) {
+	const actions = messageActions( row, useLiveStatus() === 'live' );
+	if ( actions.length === 0 ) {
+		return <>{ children }</>;
+	}
+	return (
+		<Pressable
+			accessibilityHint={ __( 'Long press for actions' ) }
+			accessibilityActions={ actions.map( ( action ) => ( {
+				name: action,
+				label: actionLabel( action ),
+			} ) ) }
+			onAccessibilityAction={ ( event ) =>
+				runAction( event.nativeEvent.actionName as MessageAction, chatId, text )
+			}
+			onLongPress={ () =>
+				openActionSheet( {
+					actions: actions.map( ( action ) => ( {
+						label: actionLabel( action ),
+						onPress: () => runAction( action, chatId, text ),
+					} ) ),
+				} )
+			}
+		>
+			{ children }
+		</Pressable>
+	);
+}
+
 function UserBubble( { text }: { text: string } ) {
 	const { colors } = useTheme();
 
 	return (
 		<View style={ [ styles.bubble, { backgroundColor: colors.muted } ] }>
-			<Text selectable>{ text }</Text>
+			<Text>{ text }</Text>
 		</View>
 	);
 }
