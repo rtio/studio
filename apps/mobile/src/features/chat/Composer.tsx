@@ -34,6 +34,9 @@ interface ComposerProps {
 	blocked: string | null;
 }
 
+// How long a Stop may take before the composer says it is not answered.
+const STOP_STUCK_MS = 5000;
+
 function actionLabel( action: ComposerAction ): string {
 	switch ( action ) {
 		case 'send':
@@ -81,6 +84,20 @@ export function Composer( { chatId, draftId, onSend, offline, blocked }: Compose
 		answering: target !== null,
 	} );
 	const stopping = action === 'stop' || action === 'force-stop';
+
+	// The computer kills a stopped agent after 2 s. Still stopping after this
+	// long means something is wrong, and Force stop is the way out. Each chat
+	// counts from its own Stop.
+	const interrupting = state.isInterrupting && state.phase !== 'idle';
+	const [ stuck, setStuck ] = useState( false );
+	useEffect( () => {
+		setStuck( false );
+		if ( ! interrupting ) {
+			return;
+		}
+		const timer = setTimeout( () => setStuck( true ), STOP_STUCK_MS );
+		return () => clearTimeout( timer );
+	}, [ interrupting, chatId ] );
 
 	// "Other" belongs to its batch of questions: once that is gone, the
 	// composer sends messages again.
@@ -141,6 +158,8 @@ export function Composer( { chatId, draftId, onSend, offline, blocked }: Compose
 		message = blocked;
 	} else if ( failed ) {
 		message = __( 'Your message was not sent. Try again.' );
+	} else if ( stuck ) {
+		message = __( 'Not responding to Stop. Force stop ends the agent on your computer.' );
 	} else if ( notice ) {
 		message = noticeText( notice );
 	}
