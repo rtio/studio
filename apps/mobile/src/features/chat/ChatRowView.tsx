@@ -1,22 +1,33 @@
-import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
+import {
+	findOwnFreeFormOptionLabel,
+	SKIPPED_QUESTION,
+	STOPPED_WITHOUT_ANSWER,
+} from '@studio/agent/protocol/tools';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	Check,
 	ChevronDown,
 	ChevronRight,
+	Circle,
 	CircleStop,
 	CircleX,
 	ImageIcon,
+	Square,
 	TriangleAlert,
 } from 'lucide-react-native';
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { runControl } from '../../data/live-connection';
+import { useRunState, useSentAnswers } from '../../data/use-run';
 import { space } from '../../theme/typography';
 import { useTheme } from '../../theme/use-theme';
+import { Button } from '../../ui/Button';
 import { Spinner } from '../../ui/Spinner';
 import { Text } from '../../ui/Text';
 import { Markdown } from './Markdown';
+import { armQuestion, disarmQuestion, useArmedQuestion } from './armed-question';
+import { answerLabels, questionView, shownPicks, toggleLabel } from './question-card';
 import type { ChatRow, ToolState } from '../../data/chat-rows';
 import type { ThemeColors } from '../../theme/theme';
 import type { AgentQuestionRenderItem } from '@studio/agent/protocol/transcript/transcript-items';
@@ -25,8 +36,7 @@ const ICON_SIZE = 16;
 
 interface ChatRowViewProps {
 	row: ChatRow;
-	// The chat's run waits for an answer now.
-	needsAnswer: boolean;
+	chatId: string;
 	onToggleTurn: ( key: string ) => void;
 }
 
@@ -34,7 +44,7 @@ interface ChatRowViewProps {
 // content did not change does not draw again.
 function sameRow( before: ChatRowViewProps, after: ChatRowViewProps ): boolean {
 	return (
-		before.needsAnswer === after.needsAnswer &&
+		before.chatId === after.chatId &&
 		before.onToggleTurn === after.onToggleTurn &&
 		replaceEqualDeep( before.row, after.row ) === before.row
 	);
@@ -43,7 +53,7 @@ function sameRow( before: ChatRowViewProps, after: ChatRowViewProps ): boolean {
 // One row of the chat.
 export const ChatRowView = memo( function ChatRowView( {
 	row,
-	needsAnswer,
+	chatId,
 	onToggleTurn,
 }: ChatRowViewProps ) {
 	switch ( row.kind ) {
@@ -60,7 +70,7 @@ export const ChatRowView = memo( function ChatRowView( {
 		case 'tool':
 			return <ToolLine label={ row.label } detail={ row.detail } state={ row.state } />;
 		case 'questions':
-			return <Questions questions={ row.questions } needsAnswer={ needsAnswer } />;
+			return <Questions chatId={ chatId } questions={ row.questions } />;
 		case 'note':
 			return <Note text={ row.text } tone={ row.tone } />;
 	}
@@ -169,19 +179,14 @@ function ToolLine( { label, detail, state }: { label: string; detail: string; st
 	);
 }
 
-function isPicked( question: AgentQuestionRenderItem, label: string ): boolean {
-	const answer = question.pickedLabel;
-	if ( ! answer ) {
-		return false;
-	}
-	return question.multiSelect ? answer.split( ', ' ).includes( label ) : answer === label;
-}
-
 // What was answered, when it is not one of the options: typed text, a skip,
 // or a stop.
-function otherAnswer( question: AgentQuestionRenderItem ): string | null {
-	const answer = question.pickedLabel;
-	if ( ! answer || question.options.some( ( option ) => isPicked( question, option.label ) ) ) {
+function otherAnswer(
+	question: AgentQuestionRenderItem,
+	answer: string | undefined
+): string | null {
+	const labels = answerLabels( question, answer );
+	if ( ! answer || question.options.some( ( option ) => labels.includes( option.label ) ) ) {
 		return null;
 	}
 	if ( answer === SKIPPED_QUESTION ) {
@@ -193,29 +198,82 @@ function otherAnswer( question: AgentQuestionRenderItem ): string | null {
 	return answer;
 }
 
+// The questions of one batch. While the agent waits, each option is a button:
+// one tap answers a single-choice question; a multiple-choice one takes its
+// picks with Done. The model's own "Other" option lets the person type the
+// answer in the composer. The answers go to the computer together once every
+// question has one.
 function Questions( {
+	chatId,
 	questions,
-	needsAnswer,
 }: {
+	chatId: string;
 	questions: AgentQuestionRenderItem[];
-	needsAnswer: boolean;
 } ) {
 	const { colors } = useTheme();
-	const waiting = questions.some( ( question ) => ! question.pickedLabel );
+	const state = useRunState( chatId );
+	const sent = useSentAnswers( chatId );
+	const armed = useArmedQuestion( chatId );
+	// The picks of a multiple-choice question before Done, by question.
+	const [ drafts, setDrafts ] = useState< Record< string, string[] > >( {} );
+	const views = questions.map( ( question ) => questionView( question, state, sent ) );
 
 	return (
 		<View style={ [ styles.card, { borderColor: colors.border } ] }>
-			{ questions.map( ( question ) => {
-				const other = otherAnswer( question );
+			{ questions.map( ( question, index ) => {
+				const { open, answer } = views[ index ];
+				const freeForm = findOwnFreeFormOptionLabel( question.options );
+				const picks = shownPicks( question, views[ index ], drafts[ question.question ] );
+				const other = otherAnswer( question, answer );
+
+				// Sends an answer. The picks not sent yet are done with.
+				const send = ( value: string ) => {
+					setDrafts( ( { [ question.question ]: _sent, ...rest } ) => rest );
+					runControl.answer( chatId, question.question, value );
+				};
+
+				const pick = ( label: string ) => {
+					if ( label === freeForm ) {
+						runControl.clearAnswer( chatId, question.question );
+						armQuestion( chatId, question.question );
+						return;
+					}
+					if ( armed === question.question ) {
+						disarmQuestion();
+					}
+					if ( question.multiSelect ) {
+						setDrafts( ( current ) => ( {
+							...current,
+							[ question.question ]: toggleLabel( picks, label ),
+						} ) );
+						return;
+					}
+					send( label );
+				};
+
 				return (
 					<View key={ question.key } style={ styles.question }>
 						<Text variant="bodyStrong">{ question.question }</Text>
+						{ open && question.multiSelect && (
+							<Text variant="caption" color="mutedForeground">
+								{ __( 'Pick all that apply.' ) }
+							</Text>
+						) }
 						{ question.options.map( ( option ) => {
-							const picked = isPicked( question, option.label );
-							return (
-								<View key={ option.label } style={ styles.option }>
+							const picked =
+								picks.includes( option.label ) ||
+								( open && armed === question.question && option.label === freeForm );
+							const content = (
+								<>
 									<View style={ styles.icon }>
 										{ picked && <Check size={ ICON_SIZE } color={ colors.accentText } /> }
+										{ ! picked &&
+											open &&
+											( question.multiSelect ? (
+												<Square size={ ICON_SIZE } color={ colors.mutedForeground } />
+											) : (
+												<Circle size={ ICON_SIZE } color={ colors.mutedForeground } />
+											) ) }
 									</View>
 									<View style={ styles.optionText }>
 										<Text
@@ -230,7 +288,25 @@ function Questions( {
 											</Text>
 										) : null }
 									</View>
-								</View>
+								</>
+							);
+							if ( ! open ) {
+								return (
+									<View key={ option.label } style={ styles.option }>
+										{ content }
+									</View>
+								);
+							}
+							return (
+								<Pressable
+									key={ option.label }
+									accessibilityRole={ question.multiSelect ? 'checkbox' : 'radio' }
+									accessibilityState={ { checked: picked } }
+									onPress={ () => pick( option.label ) }
+									style={ [ styles.option, styles.choice ] }
+								>
+									{ content }
+								</Pressable>
 							);
 						} ) }
 						{ other && (
@@ -238,14 +314,26 @@ function Questions( {
 								{ other }
 							</Text>
 						) }
+						{ open && (
+							<View style={ styles.actions }>
+								{ question.multiSelect && (
+									<Button
+										label={ __( 'Done' ) }
+										onPress={ () =>
+											send( picks.length > 0 ? picks.join( ', ' ) : SKIPPED_QUESTION )
+										}
+									/>
+								) }
+								<Button
+									variant="secondary"
+									label={ __( 'Skip' ) }
+									onPress={ () => send( SKIPPED_QUESTION ) }
+								/>
+							</View>
+						) }
 					</View>
 				);
 			} ) }
-			{ waiting && needsAnswer && (
-				<Text variant="caption" color="mutedForeground">
-					{ __( 'The agent is waiting. Answer on your computer for now.' ) }
-				</Text>
-			) }
 		</View>
 	);
 }
@@ -301,6 +389,8 @@ const styles = StyleSheet.create( {
 	},
 	question: { gap: space[ 2 ] },
 	option: { flexDirection: 'row', gap: space[ 2 ] },
+	choice: { minHeight: 44, alignItems: 'center' },
+	actions: { flexDirection: 'row', gap: space[ 2 ] },
 	optionText: { flex: 1 },
 	other: { paddingLeft: 28 },
 	note: { alignItems: 'flex-start', paddingVertical: space[ 1 ] },

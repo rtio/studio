@@ -18,7 +18,6 @@ export interface ChatView {
 	// The error that kept a run from starting, which the computer does not keep
 	// in the chat.
 	runError: string | null;
-	needsAnswer: boolean;
 	isPending: boolean;
 	isError: boolean;
 	// Reads the chat again. Does nothing while the link is not live.
@@ -55,8 +54,7 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 	const live = state.chatId === chatId ? state.live : NOTHING_LIVE;
 	const prompts = state.chatId === chatId ? state.prompts : NO_PROMPTS;
 	const activity = useSyncExternalStore( activityStore.subscribe, activityStore.get );
-	const run = activity[ chatId ];
-	const running = run !== undefined;
+	const running = activity[ chatId ] !== undefined;
 	const [ expandedTurns, setExpandedTurns ] = useState< ReadonlySet< string > >( () => new Set() );
 
 	const rows = useMemo( () => {
@@ -83,7 +81,6 @@ export function useChat( connection: Connection, chatId: string ): ChatView {
 	return {
 		rows,
 		runError: live.error,
-		needsAnswer: run?.activity === 'needs-answer',
 		isPending: query.isPending,
 		isError: query.isError,
 		refetch: () => {

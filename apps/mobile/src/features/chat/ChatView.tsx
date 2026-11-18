@@ -62,11 +62,7 @@ export function ChatView( { connection, chatId, topInset, bottomInset }: ChatVie
 			data={ data }
 			keyExtractor={ ( row ) => row.key }
 			renderItem={ ( { item } ) => (
-				<ChatRowView
-					row={ item }
-					needsAnswer={ chat.needsAnswer }
-					onToggleTurn={ chat.toggleTurn }
-				/>
+				<ChatRowView row={ item } chatId={ chatId } onToggleTurn={ chat.toggleTurn } />
 			) }
 			// In an upside-down list the header is at the bottom.
 			ListHeaderComponent={

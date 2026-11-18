@@ -10,7 +10,9 @@ import { FloatingSurface } from '../../ui/FloatingSurface';
 import { SendButton } from '../../ui/SendButton';
 import { Text } from '../../ui/Text';
 import { QueuedPrompts } from './QueuedPrompts';
+import { disarmQuestion, useArmedQuestion } from './armed-question';
 import { composerAction } from './composer-action';
+import { answerTarget } from './question-card';
 import type { ComposerAction } from './composer-action';
 import type { RunNotice } from '../../data/run-control';
 
@@ -58,14 +60,15 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 	const [ text, setText ] = useState( '' );
 	const [ sending, setSending ] = useState( false );
 	const [ failed, setFailed ] = useState( false );
+	const armed = useArmedQuestion( chatId );
+	const target = answerTarget( state, armed );
 	const trimmed = text.trim();
 	const action = composerAction( state, {
 		hasText: trimmed.length > 0,
 		sending,
-		answering: false,
+		answering: target !== null,
 	} );
 	const stopping = action === 'stop' || action === 'force-stop';
-
 	// The chat open now, for a send that ends after the person moved on.
 	const openChatId = useRef( chatId );
 	// A send from the empty screen opens the chat it makes.
@@ -80,6 +83,14 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 			setFailed( false );
 		}
 	}, [ chatId ] );
+
+	// "Other" belongs to its batch of questions: once that is gone, the
+	// composer sends messages again.
+	useEffect( () => {
+		if ( armed && ! state.pendingQuestions.some( ( pending ) => pending.question === armed ) ) {
+			disarmQuestion();
+		}
+	}, [ armed, state.pendingQuestions ] );
 
 	async function send() {
 		const from = chatId;
@@ -108,6 +119,12 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 			if ( chatId ) {
 				void runControl.stop( chatId );
 			}
+			return;
+		}
+		if ( action === 'answer' && chatId && target ) {
+			runControl.answer( chatId, target, trimmed );
+			setText( '' );
+			disarmQuestion();
 			return;
 		}
 		void send();
@@ -141,7 +158,7 @@ export function Composer( { chatId, onSend, blocked }: ComposerProps ) {
 					multiline
 					value={ text }
 					onChangeText={ setText }
-					placeholder={ __( 'Message' ) }
+					placeholder={ target ? __( 'Your answer' ) : __( 'Message' ) }
 					placeholderTextColor={ colors.placeholder }
 					accessibilityLabel={ __( 'Message' ) }
 					style={ [ textStyles.body, styles.field, { color: colors.foreground } ] }
