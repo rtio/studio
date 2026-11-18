@@ -110,12 +110,16 @@ function runAction( action: MessageAction, chatId: string, text: string ) {
 			void Clipboard.setStringAsync( text ).catch( () => undefined );
 			return;
 		case 'edit':
-			// Into this chat's composer, in place of what was there.
+			// Into this chat's composer, in place of what was there and of the
+			// notice of a send that failed before.
 			drafts.set( chatId, text );
+			drafts.clearFailure( chatId );
 			return;
 		case 'send-again': {
 			// Queued as any message is while the agent works. A refusal puts the
-			// text in the composer with its notice.
+			// text in the composer with its notice; an older notice goes, as on
+			// any send.
+			drafts.clearFailure( chatId );
 			const since = drafts.generation();
 			runControl.send( chatId, text ).catch( () => drafts.fail( chatId, text, since ) );
 			return;
