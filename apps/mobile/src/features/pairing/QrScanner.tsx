@@ -92,7 +92,12 @@ export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 			<View
 				style={ [
 					styles.panel,
-					{ backgroundColor: colors.background, paddingBottom: insets.bottom + space[ 4 ] },
+					{
+						backgroundColor: colors.background,
+						paddingLeft: insets.left + space[ 5 ],
+						paddingRight: insets.right + space[ 5 ],
+						paddingBottom: insets.bottom + space[ 4 ],
+					},
 				] }
 			>
 				<Text color={ wrongCode ? 'destructive' : 'mutedForeground' }>

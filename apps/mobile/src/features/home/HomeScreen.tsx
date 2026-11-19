@@ -118,8 +118,9 @@ function PairedHome( { connection }: { connection: Connection } ) {
 				keyboardVerticalOffset={ -insets.bottom }
 				style={ [ styles.screen, { backgroundColor: colors.background } ] }
 			>
-				{ /* Positions what floats here inside the space the keyboard leaves. */ }
-				<View style={ styles.screen }>
+				{ /* Positions what floats here inside the space the keyboard leaves, and
+				keeps it out of the side safe areas. The page color fills them. */ }
+				<View style={ [ styles.screen, { marginLeft: insets.left, marginRight: insets.right } ] }>
 					<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
 					{ chatId ? (
 						<ChatView
@@ -160,7 +161,13 @@ function PairedHome( { connection }: { connection: Connection } ) {
 						onLayout={ ( event ) => setTopHeight( event.nativeEvent.layout.height ) }
 						style={ [ styles.top, { paddingTop: insets.top } ] }
 					>
-						<TopBarBackdrop />
+						{ /* The backdrop alone reaches the edges of the screen. */ }
+						<View
+							pointerEvents="none"
+							style={ [ StyleSheet.absoluteFill, { left: -insets.left, right: -insets.right } ] }
+						>
+							<TopBarBackdrop />
+						</View>
 						<View style={ styles.header }>
 							<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
 							<Pressable

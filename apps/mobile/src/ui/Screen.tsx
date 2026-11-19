@@ -12,7 +12,8 @@ interface ScreenProps {
 // The frame of a plain screen: the page color, room for the status bar and the
 // home indicator, and content that scrolls when it is taller than the screen or
 // when the keyboard is open. The content scrolls below the status bar, not
-// under it, so the clock stays readable.
+// under it, so the clock stays readable. It also stays out of the side safe
+// areas, where an iPhone Duo shows its status column.
 export function Screen( { children }: ScreenProps ) {
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
@@ -30,7 +31,11 @@ export function Screen( { children }: ScreenProps ) {
 					keyboardShouldPersistTaps="handled"
 					contentContainerStyle={ [
 						styles.content,
-						{ paddingBottom: insets.bottom + space[ 6 ] },
+						{
+							paddingLeft: insets.left + space[ 5 ],
+							paddingRight: insets.right + space[ 5 ],
+							paddingBottom: insets.bottom + space[ 6 ],
+						},
 					] }
 				>
 					{ children }
@@ -42,5 +47,5 @@ export function Screen( { children }: ScreenProps ) {
 
 const styles = StyleSheet.create( {
 	screen: { flex: 1 },
-	content: { flexGrow: 1, paddingHorizontal: space[ 5 ], paddingTop: space[ 4 ], gap: space[ 4 ] },
+	content: { flexGrow: 1, paddingTop: space[ 4 ], gap: space[ 4 ] },
 } );

@@ -133,7 +133,9 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 	}
 
 	return (
-		<View style={ [ styles.drawer, { paddingTop: insets.top + space[ 3 ] } ] }>
+		<View
+			style={ [ styles.drawer, { paddingTop: insets.top + space[ 3 ], paddingLeft: insets.left } ] }
+		>
 			<FlatList< ListItem >
 				data={ items }
 				keyExtractor={ ( item ) => item.key }
