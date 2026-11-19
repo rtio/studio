@@ -1109,6 +1109,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/screenshot',
 		asyncHandler( async ( req: Request, res: Response ) => {
+			const arrived = Date.now();
 			const parsed = z.object( { layout: z.enum( [ 'phone', 'desktop' ] ) } ).safeParse( req.body );
 			if ( ! parsed.success ) {
 				res.status( 400 ).json( { error: 'layout must be phone or desktop' } );
@@ -1119,7 +1120,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: 'Site not found.' } );
 				return;
 			}
-			res.json( await takeScreenshot( site, parsed.data.layout ) );
+			res.json( await takeScreenshot( site, parsed.data.layout, arrived ) );
 		} )
 	);
 

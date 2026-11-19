@@ -25,7 +25,8 @@ export type ScreenshotAnswer =
 	| { image: string; takenAt: number }
 	| { image: null; reason: 'stopped' | 'no-browser' | 'failed' };
 
-// The phone's API client gives up after 10 s; this answers before it does.
+// The phone's API client gives up after 10 s. Counted from when the request
+// came, this answers before it does.
 const SCREENSHOT_LIMIT_MS = 8000;
 
 function isNoBrowser( error: unknown ): boolean {
@@ -40,9 +41,11 @@ function isNoBrowser( error: unknown ): boolean {
 export function createScreenshotTaker( capture: CapturePreview | undefined, now = Date.now ) {
 	const taking = new Map< string, Promise< Buffer > >();
 
+	// `since`: when the request came, so the time spent before the shot counts.
 	return async function take(
 		site: { id: string; url: string; running: boolean },
-		layout: ScreenshotLayout
+		layout: ScreenshotLayout,
+		since = now()
 	): Promise< ScreenshotAnswer > {
 		if ( ! site.running ) {
 			return { image: null, reason: 'stopped' };
@@ -67,7 +70,7 @@ export function createScreenshotTaker( capture: CapturePreview | undefined, now 
 		const limit = new Promise< never >( ( _resolve, reject ) => {
 			timer = setTimeout(
 				() => reject( new Error( 'Screenshot took too long.' ) ),
-				SCREENSHOT_LIMIT_MS
+				Math.max( 0, SCREENSHOT_LIMIT_MS - ( now() - since ) )
 			);
 		} );
 		try {

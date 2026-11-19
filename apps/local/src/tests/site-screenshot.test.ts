@@ -74,6 +74,21 @@ describe( 'createScreenshotTaker', () => {
 		finish.forEach( ( resolve ) => resolve( Buffer.from( 'y' ) ) );
 	} );
 
+	it( 'counts the limit from when the request came', async () => {
+		vi.useFakeTimers();
+		try {
+			const take = createScreenshotTaker( () => new Promise< Buffer >( () => undefined ) );
+			// Listing the sites took 3 s before the shot started.
+			const shot = take( site, 'phone', Date.now() - 3000 );
+
+			await vi.advanceTimersByTimeAsync( 5000 );
+
+			expect( await shot ).toEqual( { image: null, reason: 'failed' } );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
 	it( 'gives up after the limit, and lets a new request wait for the same capture', async () => {
 		vi.useFakeTimers();
 		try {
