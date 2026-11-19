@@ -17,9 +17,10 @@
 //   node scripts/fake-remote.mjs
 //
 // It takes made-up screenshots of its sites (see fake-screenshot.mjs). A site
-// changes when a run in one of its chats ends: the next screenshot shows a
-// new color. A run the phone started also sends `preview.reload` first, as
-// the computer's agent does when it reloads the site's preview.
+// changes, and the next screenshot shows a new color, when a run of this
+// server's own loop in one of its chats ends, and in a run the phone started
+// when it sends `preview.reload`, as the computer's agent does when it
+// reloads the site's preview. That run's end changes nothing more.
 //
 // Pair with the address it prints and the code FAKE-FAKE-FAKE. It logs each
 // request that carries a device token, and each request for the image in the
