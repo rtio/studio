@@ -1,7 +1,7 @@
 import os from 'os';
+import { getDefaultLanAddress } from '@studio/common/lib/network-address';
 import { __, sprintf } from '@wordpress/i18n';
 import { isProcessAlive } from 'cli/lib/daemon-client';
-import { getDefaultLanAddress } from 'cli/lib/network-address';
 import { printPairingCode } from 'cli/lib/remote-pairing';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';

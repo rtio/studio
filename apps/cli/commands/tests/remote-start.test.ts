@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getDefaultLanAddress } from '@studio/common/lib/network-address';
 import { startLocalServer } from '@studio/local';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { capturePreview } from 'cli/lib/capture-preview';
-import { getDefaultLanAddress } from 'cli/lib/network-address';
 import { printPairingCode } from 'cli/lib/remote-pairing';
 import { mockReportError, mockReportSuccess } from 'cli/tests/test-utils';
 import { runCommand } from '../remote/start';
@@ -20,7 +20,7 @@ vi.mock( '@studio/local', () => ( {
 	startLocalServer: vi.fn().mockResolvedValue( { url: 'http://127.0.0.1:8098', close: vi.fn() } ),
 } ) );
 vi.mock( 'cli/lib/remote-pairing', () => ( { printPairingCode: vi.fn() } ) );
-vi.mock( 'cli/lib/network-address', () => ( {
+vi.mock( '@studio/common/lib/network-address', () => ( {
 	getDefaultLanAddress: vi.fn( () => '192.168.1.20' ),
 } ) );
 
