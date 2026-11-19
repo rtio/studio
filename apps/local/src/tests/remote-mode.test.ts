@@ -195,6 +195,8 @@ describe( 'remote mode', () => {
 				'DELETE /remote/devices/current',
 				'GET /health',
 				'GET /sites',
+				'POST /sites/:id/screenshot',
+				'GET /sites/:id/thumbnail',
 				'GET /sessions',
 				'POST /sessions',
 				'GET /sessions/:id',

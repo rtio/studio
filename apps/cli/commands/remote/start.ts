@@ -29,11 +29,13 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 			{ getSessionsDirectory },
 			{ STUDIO_SITES_ROOT },
 			{ clearPairingCodes, clearRemoteServerInfo, readRemoteServerInfo, setRemoteServerInfo },
+			{ capturePreview },
 		] = await Promise.all( [
 			import( '@studio/local' ),
 			import( '@studio/common/lib/well-known-paths' ),
 			import( 'cli/lib/site-paths' ),
 			import( '@studio/common/lib/remote-access' ),
+			import( 'cli/lib/capture-preview' ),
 		] );
 
 		// Two servers would overwrite each other's record and share one events socket.
@@ -55,6 +57,8 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 			host,
 			port,
 			remote: { label: os.hostname(), studioVersion: __STUDIO_CLI_VERSION__ },
+			// Without it, every screenshot the phone asks for answers `no-browser`.
+			capturePreview,
 		} );
 		await setRemoteServerInfo( { url: server.url, pid: process.pid } );
 

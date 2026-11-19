@@ -23,6 +23,10 @@ const REMOTE_ALLOWED_ROUTES: ReadonlyArray< { method: string; pattern: RegExp } 
 	{ method: 'DELETE', pattern: /^\/remote\/devices\/current$/ },
 	{ method: 'GET', pattern: /^\/health$/ },
 	{ method: 'GET', pattern: /^\/sites$/ },
+	// The phone's site preview: a fresh screenshot of a running site, and the
+	// stored one of a stopped site.
+	{ method: 'POST', pattern: /^\/sites\/[^/]+\/screenshot$/ },
+	{ method: 'GET', pattern: /^\/sites\/[^/]+\/thumbnail$/ },
 	{ method: 'GET', pattern: /^\/sessions$/ },
 	{ method: 'POST', pattern: /^\/sessions$/ },
 	{ method: 'GET', pattern: /^\/sessions\/[^/]+$/ },
