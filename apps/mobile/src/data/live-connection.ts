@@ -14,7 +14,7 @@ import { createHapticMoments } from './haptic-moments';
 import { startLiveSession } from './live-session';
 import { createOpenChat } from './open-chat';
 import { queryClient } from './query-client';
-import { chatKey, sessionsKey, sitesKey } from './query-keys';
+import { chatKey, sessionsKey, siteShotsKey, sitesKey } from './query-keys';
 import { parseActiveRuns } from './remote-schemas';
 import { createRunControl } from './run-control';
 import {
@@ -26,8 +26,9 @@ import {
 	subscribeSelectedChat,
 } from './selection';
 import { openSiteShots } from './shot-cache';
+import { createShotRefresh } from './shot-refresh';
 import type { LiveStatus } from './live-status';
-import type { Site } from './remote-schemas';
+import type { Session, Site } from './remote-schemas';
 import type { ActivityMap } from './run-activity';
 import type { Connection } from '../connection/connection-store';
 
@@ -71,8 +72,25 @@ export const runControl = createRunControl( {
 // Which events of the stream the person feels.
 const hapticMoments = createHapticMoments();
 
+// When the preview sheet takes a new screenshot by itself: the stream says
+// that the agent changed the site it shows.
+const shotRefresh = createShotRefresh( {
+	siteOfChat: ( chatId ) =>
+		live
+			? queryClient
+					.getQueryData< Session[] >( sessionsKey( live.connection ) )
+					?.find( ( chat ) => chat.id === chatId )?.ownerSiteId
+			: undefined,
+	refresh: ( siteId ) => {
+		if ( live ) {
+			void queryClient.invalidateQueries( { queryKey: siteShotsKey( live.connection, siteId ) } );
+		}
+	},
+} );
+
 // The preview sheet opened on a site, or closed (null).
 export function showSitePreview( siteId: string | null ): void {
+	shotRefresh.show( siteId );
 	if ( siteId && live ) {
 		openSiteShots( queryClient, live.connection, siteId );
 	}
@@ -134,6 +152,7 @@ function start( connection: Connection ) {
 				playHaptic( moment );
 			}
 			runControl.handle( chatId, event );
+			shotRefresh.handle( chatId, event );
 		},
 		onActiveRunsRead: runControl.beginHydrate,
 		onActiveRuns: runControl.hydrate,
@@ -177,6 +196,7 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	drafts.clear();
 	connectionHistory.clear();
 	resetSelection();
+	shotRefresh.show( null );
 	// Screenshots of the computer's sites stay in memory only while it is
 	// paired.
 	queryClient.removeQueries( { queryKey: [ 'site-shot' ] } );
