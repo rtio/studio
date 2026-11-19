@@ -11,6 +11,8 @@ const config: ExpoConfig = {
 	updates: { enabled: false },
 	ios: {
 		bundleIdentifier: 'com.automattic.studio.mobile',
+		// The desktop app's own icon, with its light, dark and tinted looks.
+		icon: '../studio/assets/studio-app-icon.icon',
 		supportsTablet: false,
 		infoPlist: {
 			NSLocalNetworkUsageDescription: 'Studio connects to your computer on your local network.',
@@ -19,6 +21,12 @@ const config: ExpoConfig = {
 	},
 	android: {
 		package: 'com.automattic.studio.mobile',
+		// Drawn from the desktop app's icon by `npm run logo`.
+		adaptiveIcon: {
+			foregroundImage: './assets/android-icon-foreground.png',
+			monochromeImage: './assets/android-icon-monochrome.png',
+			backgroundColor: '#FAFAFB',
+		},
 	},
 	plugins: [
 		'expo-router',

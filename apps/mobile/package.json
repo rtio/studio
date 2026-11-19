@@ -7,6 +7,7 @@
 	"scripts": {
 		"start": "expo start --dev-client --localhost --port 8097",
 		"tokens": "node scripts/generate-tokens.mjs",
+		"logo": "node scripts/render-logo.mjs",
 		"ios": "expo run:ios --no-bundler",
 		"android": "expo run:android --no-bundler",
 		"lint": "eslint .",
