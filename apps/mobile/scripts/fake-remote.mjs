@@ -16,11 +16,17 @@
 //
 //   node scripts/fake-remote.mjs
 //
+// It takes made-up screenshots of its sites (see fake-screenshot.mjs). A site
+// changes when a run in one of its chats ends: the next screenshot shows a
+// new color. A run the phone started also sends `preview.reload` first, as
+// the computer's agent does when it reloads the site's preview.
+//
 // Pair with the address it prints and the code FAKE-FAKE-FAKE. It logs each
 // request that carries a device token, and each request for the image in the
 // agent's reply, which the phone must never make.
 import { randomUUID } from 'node:crypto';
 import http from 'node:http';
+import { drawScreenshot } from './fake-screenshot.mjs';
 
 const port = Number( process.env.FAKE_REMOTE_PORT ?? 8099 );
 const STEP_MS = Number( process.env.FAKE_REMOTE_STEP_MS ?? 2000 );
@@ -29,6 +35,10 @@ const instanceId = process.env.FAKE_REMOTE_INSTANCE_ID ?? 'fake-instance';
 // Set a chat id to make reading that chat fail, as the real server does for a
 // chat it cannot load.
 const brokenChat = process.env.FAKE_REMOTE_BROKEN_CHAT;
+// Set `no-browser` or `failed` to make every screenshot fail for that reason.
+const shotFailure = process.env.FAKE_REMOTE_SCREENSHOT;
+// A real screenshot takes a second or two on the computer.
+const SHOT_MS = 800;
 
 // Not secrets: this server holds no real data.
 const PAIRING_CODE = 'FAKEFAKEFAKE';
@@ -39,6 +49,12 @@ const sites = [
 	{ id: 's2', name: 'Portfolio', running: false, url: 'http://localhost:8882' },
 	{ id: 's3', name: 'Shop', running: false, url: 'http://localhost:8883' },
 ];
+
+// For the screenshots: each site's color, how many times its chats changed
+// it, and whether the computer stored a screenshot of it (Shop has none).
+const ACCENTS = { s1: '#C2410C', s2: '#1D4ED8', s3: '#047857' };
+const changes = new Map();
+const STORED = new Set( [ 's1', 's2' ] );
 
 function session( id, updatedAt, fields ) {
 	return {
@@ -272,7 +288,16 @@ function startRun( sessionId ) {
 	agent( sessionId, { type: 'run.started' } );
 }
 
+// The agent changed the site of this chat, if it has one.
+function changeSite( sessionId ) {
+	const siteId = sessions.find( ( candidate ) => candidate.id === sessionId )?.ownerSiteId;
+	if ( siteId ) {
+		changes.set( siteId, ( changes.get( siteId ) ?? 0 ) + 1 );
+	}
+}
+
 function endRun( sessionId ) {
+	changeSite( sessionId );
 	agent( sessionId, { type: 'turn.completed', sessionId, status: 'success' } );
 	agent( sessionId, { type: 'run.exited', status: 'success', code: 0 } );
 	activeRuns.delete( sessionId );
@@ -520,6 +545,8 @@ async function phoneTurn( run, prompt ) {
 				'small ',
 				'steps.',
 		  ];
+	changeSite( sessionId );
+	emit( run, { type: 'preview.reload' } );
 	if ( ! ( await phoneReply( run, words ) ) ) {
 		return;
 	}
@@ -619,6 +646,47 @@ async function play() {
 }
 void play();
 
+// As the computer answers `POST /api/sites/:id/screenshot`, with a PNG where
+// the computer sends a JPEG.
+async function takeShot( res, siteId, layout ) {
+	if ( layout !== 'phone' && layout !== 'desktop' ) {
+		json( res, 400, { error: 'layout must be phone or desktop' } );
+		return;
+	}
+	const site = sites.find( ( candidate ) => candidate.id === siteId );
+	if ( ! site ) {
+		json( res, 404, { error: 'Site not found.' } );
+		return;
+	}
+	if ( ! site.running ) {
+		json( res, 200, { image: null, reason: 'stopped' } );
+		return;
+	}
+	await wait( SHOT_MS );
+	if ( shotFailure === 'no-browser' || shotFailure === 'failed' ) {
+		json( res, 200, { image: null, reason: shotFailure } );
+		return;
+	}
+	const png = drawScreenshot( {
+		layout,
+		accent: ACCENTS[ site.id ],
+		change: changes.get( site.id ) ?? 0,
+	} );
+	json( res, 200, {
+		image: `data:image/png;base64,${ png.toString( 'base64' ) }`,
+		takenAt: Date.now(),
+	} );
+}
+
+// The screenshot the desktop app stored, from before any change.
+function storedShot( siteId ) {
+	if ( ! STORED.has( siteId ) ) {
+		return null;
+	}
+	const png = drawScreenshot( { layout: 'desktop', accent: ACCENTS[ siteId ], change: 0 } );
+	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
+}
+
 function json( res, status, body ) {
 	res.writeHead( status, { 'Content-Type': 'application/json' } );
 	res.end( JSON.stringify( body ) );
@@ -704,6 +772,18 @@ const server = http.createServer( async ( req, res ) => {
 			answer( body.answers ?? {} );
 		}
 		res.writeHead( 204 ).end();
+		return;
+	}
+
+	const shotRoute = /^POST \/api\/sites\/([^/?]+)\/screenshot$/.exec( route );
+	if ( shotRoute ) {
+		const body = await readBody( req );
+		await takeShot( res, decodeURIComponent( shotRoute[ 1 ] ), body.layout );
+		return;
+	}
+	const thumbnailRoute = /^GET \/api\/sites\/([^/?]+)\/thumbnail$/.exec( route );
+	if ( thumbnailRoute ) {
+		json( res, 200, { thumbnail: storedShot( decodeURIComponent( thumbnailRoute[ 1 ] ) ) } );
 		return;
 	}
 

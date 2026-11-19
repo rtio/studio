@@ -121,6 +121,8 @@ A spinner, a question or live text needs an agent run. For work on the app there
 
 It also takes what the phone sends. A message starts a short run in that chat; with a `?` in it, the agent first asks two questions (one with its own "Other", one with several picks). Answers, Stop and new chats work as on the computer, including the 500 for a message to a busy chat and a stopped run leaving the list of active runs at once. The loop leaves alone a chat the phone runs in. What the phone sent is lost when the server stops.
 
+It takes made-up screenshots of its sites: a header in the site's color and a block whose color changes each time a run in one of the site's chats ends. A run the phone started also sends `preview.reload`. Shop has no stored screenshot. Set `FAKE_REMOTE_SCREENSHOT=no-browser` or `FAKE_REMOTE_SCREENSHOT=failed` to make every screenshot fail for that reason.
+
 ```bash
 node scripts/fake-remote.mjs
 ```
