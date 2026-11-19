@@ -33,6 +33,8 @@ export type RemoteConnectionChoice =
 	  }
 	| { ok: false; kind: RemoteConnectionKind; missing: RemoteConnectionMissing };
 
+export type ReadyRemoteConnection = Extract< RemoteConnectionChoice, { ok: true } >;
+
 export function isRemoteConnectionRequest( value: unknown ): value is RemoteConnectionRequest {
 	return ( REMOTE_CONNECTION_REQUESTS as readonly unknown[] ).includes( value );
 }
