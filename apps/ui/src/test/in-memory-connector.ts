@@ -397,6 +397,19 @@ export function createInMemoryConnector(
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
+		getPhoneAccess: async () => ( { status: 'off' } ),
+		setPhoneAccess: async ( on ) =>
+			on
+				? { status: 'on', url: 'http://192.168.1.20:8082', portChanged: false }
+				: { status: 'off' },
+		getPhonePairingCode: async () => ( {
+			address: 'http://192.168.1.20:8082',
+			code: 'ABCD-2345-EFGH',
+			expiresAt: Date.now() + 5 * 60_000,
+			qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+		} ),
+		getPairedPhones: async () => [],
+		removePairedPhone: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
@@ -456,6 +469,7 @@ export function createInMemoryConnector(
 			studioLogs: true,
 			nativeSites: true,
 			loopbackSignIn: true,
+			phoneAccess: true,
 			...overrides.capabilities,
 		},
 		state,
