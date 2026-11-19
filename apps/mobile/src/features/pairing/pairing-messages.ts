@@ -7,7 +7,7 @@ export function pairingFailureMessage( reason: PairingFailure ): string {
 	switch ( reason ) {
 		case 'unreachable':
 			return __(
-				'Can’t reach your computer. Check that “studio remote” is running there, and that this phone is on the same network or VPN.'
+				'Can’t reach your computer. Check that Settings > Phone is on in Studio there, or that “studio remote” is running, and that this phone is on the same network or VPN.'
 			);
 		case 'not-studio':
 			return __( 'That address did not answer like Studio. Check the address.' );
@@ -19,7 +19,7 @@ export function pairingFailureMessage( reason: PairingFailure ): string {
 			return __( 'The Studio on your computer is too old for this app. Update Studio.' );
 		case 'code-invalid':
 			return __(
-				'That pairing code is wrong or has expired. Run “studio remote pair” on your computer for a new one.'
+				'That pairing code is wrong or has expired. Get a new one in Settings > Phone in Studio on your computer, or with “studio remote pair”.'
 			);
 		case 'too-many-attempts':
 			return __( 'Too many attempts. Wait a minute, then try again.' );
@@ -37,7 +37,7 @@ export function connectionNoticeMessage( notice: ConnectionNotice ): string {
 			return __( 'The pairing has expired. Pair again.' );
 		case 'not-revoked':
 			return __(
-				'This phone forgot the computer, but the computer did not answer and still lists this phone. Remove it there with “studio remote devices revoke”.'
+				'This phone forgot the computer, but the computer did not answer and still lists this phone. Remove it there in Settings > Phone in Studio, or with “studio remote devices revoke”.'
 			);
 	}
 }

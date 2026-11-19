@@ -65,7 +65,7 @@ npm run cli:build
 node apps/cli/dist/cli/main.mjs remote --host 127.0.0.1 --port 8098
 ```
 
-It prints a QR code, an address and a pairing code. In the app, type the address and the code, or scan the QR code with a real phone. On a simulator you can open the pairing link instead: `studio-remote://pair?url=<address>&code=<code>&id=<instance id>`. The app shows the address and pairs after you tap Pair. The instance id is in `http://127.0.0.1:8098/.well-known/studio/remote`.
+It prints a QR code, an address and a pairing code. The desktop app can run remote mode too: Settings > Phone turns it on and shows the same QR code, address and code, with the paired phones. In the app, type the address and the code, or scan the QR code with a real phone. On a simulator you can open the pairing link instead: `studio-remote://pair?url=<address>&code=<code>&id=<instance id>`. The app shows the address and pairs after you tap Pair. The instance id is in `http://127.0.0.1:8098/.well-known/studio/remote`.
 
 An Android emulator needs `adb reverse tcp:8098 tcp:8098` first.
 

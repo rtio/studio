@@ -29,7 +29,7 @@ export function PairScreen() {
 
 	async function pair( link: PairingLink | null ) {
 		if ( ! link ) {
-			setFailure( __( 'Enter the address and the 12-character code that “studio remote” shows.' ) );
+			setFailure( __( 'Enter the address and the 12-character code that your computer shows.' ) );
 			return;
 		}
 		setPairing( true );
@@ -53,7 +53,7 @@ export function PairScreen() {
 				<Text variant="bodyStrong">{ linkFromOutside.baseUrl }</Text>
 				<Text color="mutedForeground">
 					{ __(
-						'A pairing link opened Studio. Continue only if this is the address that “studio remote” shows on your own computer.'
+						'A pairing link opened Studio. Continue only if this is the address that your own computer shows.'
 					) }
 				</Text>
 				<Button
@@ -91,7 +91,7 @@ export function PairScreen() {
 			<Text variant="title">{ __( 'Pair with your computer' ) }</Text>
 			<Text color="mutedForeground">
 				{ __(
-					'Run “studio remote” in a terminal on your computer. Then scan the code it shows, or type the address and the code.'
+					'In Studio on your computer, turn on Settings > Phone, or run “studio remote” in a terminal. Then scan the code it shows, or type the address and the code.'
 				) }
 			</Text>
 			{ notice && ! failure && <Text color="warning">{ connectionNoticeMessage( notice ) }</Text> }

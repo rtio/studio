@@ -16,7 +16,7 @@ interface QrScannerProps {
 	onCancel: () => void;
 }
 
-// The camera, looking for the QR code that `studio remote` shows. It asks for
+// The camera, looking for the QR code that Settings > Phone or `studio remote` shows. It asks for
 // the camera permission the first time.
 export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 	const [ permission, requestPermission, readPermission ] = useCameraPermissions();
@@ -98,7 +98,7 @@ export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 				<Text color={ wrongCode ? 'destructive' : 'mutedForeground' }>
 					{ wrongCode
 						? __( 'That is not a Studio pairing code.' )
-						: __( 'Point the camera at the code that “studio remote” shows.' ) }
+						: __( 'Point the camera at the QR code your computer shows.' ) }
 				</Text>
 				<Button variant="secondary" label={ __( 'Cancel' ) } onPress={ onCancel } />
 			</View>
