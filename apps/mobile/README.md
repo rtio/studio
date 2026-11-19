@@ -116,6 +116,18 @@ The phone follows the rules of Studio's own composer, with the same run-state re
 - The button next to New chat opens a preview of the site in the header: a screenshot of its homepage, taken on the computer, in a phone or a desktop layout. A new one is taken when the sheet opens, on Refresh, and while it is open when the agent reloads the site's preview or a run in one of its chats ends (at most once a second). A stopped site shows the screenshot the desktop app stored. Pinch to zoom on iOS. The screenshots stay in memory and go when the phone forgets the computer.
 - Settings shows the link's state and, while it is not live, when it last was. Copy diagnostics copies the app version, the computer's name and address, the link's state, when it was last live and the last problem. It never copies the token.
 
+## Wide windows and iPhone Duo
+
+One function, `deriveLayout` in `src/ui/layout.ts`, decides what the window's width allows. The home screen reads it through `useLayout()`. No screen asks which device it runs on.
+
+- Content stays out of the side safe areas. An iPhone Duo shows its status column there, on the right edge, folded and unfolded. The page color and the top bar's backdrop still reach the edge of the screen.
+- From 720 points of usable width (the window without its side safe areas), the drawer is a fixed column beside the chat and the menu button is gone. An open iPhone Duo is that wide. Narrower, the drawer slides over the chat as before. A drawer left open is closed when the window gets wide.
+- Messages and the composer are at most 720 points wide, and the pairing screen, the scanner's panel and Settings at most 560, centered in the room they have.
+- On the pairing screen, Return moves from the address to the code, and from the code it pairs: on the short outer screen of an iPhone Duo the keyboard covers the Pair button.
+- The crease of an open iPhone Duo is not handled. Reading where it is needs a native view.
+
+The iOS simulator has an iPhone Duo. The build for a simulator runs on it as it is.
+
 ## Work without Studio
 
 A spinner, a question or live text needs an agent run. For work on the app there is a stand-in server with made-up sites and chats and a loop of events. In "Add a blog" it plays a whole run: the prompt, a streamed reply with a step, a question that is answered on the computer, and a final reply. It logs any request for the image in that reply, which the app must never make.
