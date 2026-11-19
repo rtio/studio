@@ -212,6 +212,7 @@ import {
 	toRemoteSite,
 	type RemoteModeInfo,
 } from './remote-mode';
+import { createScreenshotTaker, type CapturePreview } from './site-screenshot';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
@@ -269,8 +270,9 @@ export interface LocalServerOptions {
 	// Injected by `studio ui` rather than imported, so this package doesn't depend
 	// on the CLI.
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
-	// Screenshots a page of a running site; absent when no browser is available.
-	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// Screenshots a page of a running site. Rejects with `code: 'no-browser'`
+	// when no browser is installed.
+	capturePreview?: CapturePreview;
 	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
 	userAgent?: string;
 }
@@ -427,6 +429,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
+	const takeScreenshot = createScreenshotTaker( options.capturePreview );
 
 	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
@@ -1098,6 +1101,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeSitePreview( site.id, png );
 			res.json( { thumbnail: `data:image/png;base64,${ png.toString( 'base64' ) }` } );
+		} )
+	);
+
+	// A fresh screenshot of a running site's homepage for the phone's preview,
+	// stored nowhere (see site-screenshot.ts).
+	api.post(
+		'/sites/:id/screenshot',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { layout: z.enum( [ 'phone', 'desktop' ] ) } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'layout must be phone or desktop' } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( item ) => item.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			res.json( await takeScreenshot( site, parsed.data.layout ) );
 		} )
 	);
 
