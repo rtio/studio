@@ -18,6 +18,7 @@ import type {
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
+	PhoneAccessState,
 	SiteDetails,
 	SiteEmail,
 	UserPreferences,
@@ -188,6 +189,7 @@ export function createInMemoryConnector(
 	};
 	let agentInstructions = '';
 	let agentInstructionsEnabled = true;
+	let phoneAccess: PhoneAccessState = { status: 'off' };
 
 	const methods: Methods = {
 		init: async () => {},
@@ -397,11 +399,13 @@ export function createInMemoryConnector(
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
-		getPhoneAccess: async () => ( { status: 'off' } ),
-		setPhoneAccess: async ( on ) =>
-			on
+		getPhoneAccess: async () => phoneAccess,
+		setPhoneAccess: async ( on ) => {
+			phoneAccess = on
 				? { status: 'on', url: 'http://192.168.1.20:8082', portChanged: false }
-				: { status: 'off' },
+				: { status: 'off' };
+			return phoneAccess;
+		},
 		getPhonePairingCode: async () => ( {
 			address: 'http://192.168.1.20:8082',
 			code: 'ABCD-2345-EFGH',

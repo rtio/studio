@@ -189,7 +189,7 @@ interface ConnectorCapabilities {
 }
 
 // Remote mode for the Studio phone app, as the desktop app runs it.
-type PhoneAccessState =
+export type PhoneAccessState =
 	| { status: 'off' }
 	| { status: 'starting' }
 	// `portChanged`: the remembered port was taken, so phones paired before must pair again.
@@ -199,14 +199,14 @@ type PhoneAccessState =
 	| { status: 'error'; message: string };
 
 // A one-time code for the phone app, valid until `expiresAt`. `qrSvg` holds the pairing link.
-interface PhonePairingCode {
+export interface PhonePairingCode {
 	address: string;
 	code: string;
 	expiresAt: number;
 	qrSvg: string;
 }
 
-interface PairedPhone {
+export interface PairedPhone {
 	id: string;
 	name: string;
 	platform: string;
