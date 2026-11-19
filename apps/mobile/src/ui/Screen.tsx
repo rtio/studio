@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { space } from '../theme/typography';
 import { useTheme } from '../theme/use-theme';
+import { PLAIN_MAX_WIDTH } from './layout';
 import type { ReactNode } from 'react';
 
 interface ScreenProps {
@@ -13,7 +14,8 @@ interface ScreenProps {
 // home indicator, and content that scrolls when it is taller than the screen or
 // when the keyboard is open. The content scrolls below the status bar, not
 // under it, so the clock stays readable. It also stays out of the side safe
-// areas, where an iPhone Duo shows its status column.
+// areas, where an iPhone Duo shows its status column, and in a column of a
+// readable width on a wide window.
 export function Screen( { children }: ScreenProps ) {
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
@@ -38,7 +40,7 @@ export function Screen( { children }: ScreenProps ) {
 						},
 					] }
 				>
-					{ children }
+					<View style={ styles.column }>{ children }</View>
 				</ScrollView>
 			</KeyboardAvoidingView>
 		</View>
@@ -47,5 +49,12 @@ export function Screen( { children }: ScreenProps ) {
 
 const styles = StyleSheet.create( {
 	screen: { flex: 1 },
-	content: { flexGrow: 1, paddingTop: space[ 4 ], gap: space[ 4 ] },
+	content: { flexGrow: 1, paddingTop: space[ 4 ] },
+	column: {
+		flexGrow: 1,
+		width: '100%',
+		maxWidth: PLAIN_MAX_WIDTH,
+		alignSelf: 'center',
+		gap: space[ 4 ],
+	},
 } );

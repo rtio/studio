@@ -7,6 +7,7 @@ import { ChoiceChips } from '../../ui/ChoiceChips';
 import { ListRow } from '../../ui/ListRow';
 import { StudioLogo } from '../../ui/StudioLogo';
 import { Text } from '../../ui/Text';
+import { READING_MAX_WIDTH } from '../../ui/layout';
 import { starterPrompts } from './starter-prompts';
 import type { Site } from '../../data/remote-schemas';
 
@@ -67,7 +68,15 @@ export function NewChat( { sites, siteId, topInset, bottomInset }: NewChatProps 
 }
 
 const styles = StyleSheet.create( {
-	body: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: space[ 5 ], gap: space[ 5 ] },
+	body: {
+		flexGrow: 1,
+		justifyContent: 'center',
+		width: '100%',
+		maxWidth: READING_MAX_WIDTH + 2 * space[ 5 ],
+		alignSelf: 'center',
+		paddingHorizontal: space[ 5 ],
+		gap: space[ 5 ],
+	},
 	heading: { gap: space[ 4 ] },
 	section: { gap: space[ 2 ] },
 } );

@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button';
 import { FloatingSurface } from '../../ui/FloatingSurface';
 import { Spinner } from '../../ui/Spinner';
 import { Text } from '../../ui/Text';
+import { READING_MAX_WIDTH } from '../../ui/layout';
 import { ChatRowView } from './ChatRowView';
 import type { Connection } from '../../connection/connection-store';
 import type { ChatRow } from '../../data/chat-rows';
@@ -119,7 +120,12 @@ const JUMP_AFTER = 400;
 
 const styles = StyleSheet.create( {
 	chat: { flex: 1 },
-	content: { paddingHorizontal: space[ 4 ] },
+	content: {
+		width: '100%',
+		maxWidth: READING_MAX_WIDTH + 2 * space[ 4 ],
+		alignSelf: 'center',
+		paddingHorizontal: space[ 4 ],
+	},
 	jump: { position: 'absolute', alignSelf: 'center' },
 	jumpCircle: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 	bottom: { gap: space[ 3 ] },

@@ -9,6 +9,7 @@ import { useTheme } from '../../theme/use-theme';
 import { Button } from '../../ui/Button';
 import { Screen } from '../../ui/Screen';
 import { Text } from '../../ui/Text';
+import { PLAIN_MAX_WIDTH } from '../../ui/layout';
 import type { PairingLink } from '../../connection/pairing-link';
 
 interface QrScannerProps {
@@ -100,12 +101,14 @@ export function QrScanner( { onLink, onCancel }: QrScannerProps ) {
 					},
 				] }
 			>
-				<Text color={ wrongCode ? 'destructive' : 'mutedForeground' }>
-					{ wrongCode
-						? __( 'That is not a Studio pairing code.' )
-						: __( 'Point the camera at the QR code your computer shows.' ) }
-				</Text>
-				<Button variant="secondary" label={ __( 'Cancel' ) } onPress={ onCancel } />
+				<View style={ styles.column }>
+					<Text color={ wrongCode ? 'destructive' : 'mutedForeground' }>
+						{ wrongCode
+							? __( 'That is not a Studio pairing code.' )
+							: __( 'Point the camera at the QR code your computer shows.' ) }
+					</Text>
+					<Button variant="secondary" label={ __( 'Cancel' ) } onPress={ onCancel } />
+				</View>
 			</View>
 		</View>
 	);
@@ -119,6 +122,6 @@ const styles = StyleSheet.create( {
 		right: 0,
 		bottom: 0,
 		padding: space[ 5 ],
-		gap: space[ 4 ],
 	},
+	column: { width: '100%', maxWidth: PLAIN_MAX_WIDTH, alignSelf: 'center', gap: space[ 4 ] },
 } );

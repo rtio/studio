@@ -1,5 +1,9 @@
 // From this usable width the drawer sits beside the chat.
 const WIDE_MIN_WIDTH = 720;
+// The widest the chat's messages and the composer get, and the widest a plain
+// screen's content gets. Wider, they sit centered.
+export const READING_MAX_WIDTH = 720;
+export const PLAIN_MAX_WIDTH = 560;
 
 interface WindowMetrics {
 	width: number;

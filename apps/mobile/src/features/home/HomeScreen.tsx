@@ -18,6 +18,7 @@ import { IconButton } from '../../ui/IconButton';
 import { StatusDot } from '../../ui/StatusDot';
 import { Text } from '../../ui/Text';
 import { TopBarBackdrop } from '../../ui/TopBarBackdrop';
+import { READING_MAX_WIDTH } from '../../ui/layout';
 import { useLayout } from '../../ui/use-layout';
 import { ChatView } from '../chat/ChatView';
 import { Composer } from '../chat/Composer';
@@ -165,18 +166,20 @@ function PairedHome( { connection }: { connection: Connection } ) {
 						onLayout={ ( event ) => setBottomHeight( event.nativeEvent.layout.height ) }
 						style={ [ styles.bottom, { paddingBottom: insets.bottom + space[ 2 ] } ] }
 					>
-						<ConnectionLine
-							status={ status }
-							computer={ connection.label }
-							onOpenSettings={ () => router.push( '/settings' ) }
-						/>
-						<Composer
-							chatId={ chatId }
-							draftId={ draftKey( chatId, siteId ?? null ) }
-							onSend={ send }
-							offline={ status !== 'live' }
-							blocked={ blocked }
-						/>
+						<View style={ styles.column }>
+							<ConnectionLine
+								status={ status }
+								computer={ connection.label }
+								onOpenSettings={ () => router.push( '/settings' ) }
+							/>
+							<Composer
+								chatId={ chatId }
+								draftId={ draftKey( chatId, siteId ?? null ) }
+								onSend={ send }
+								offline={ status !== 'live' }
+								blocked={ blocked }
+							/>
+						</View>
 					</View>
 
 					<View
@@ -254,8 +257,8 @@ const styles = StyleSheet.create( {
 		bottom: 0,
 		paddingHorizontal: space[ 4 ],
 		paddingTop: space[ 2 ],
-		gap: space[ 2 ],
 	},
+	column: { width: '100%', maxWidth: READING_MAX_WIDTH, alignSelf: 'center', gap: space[ 2 ] },
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
