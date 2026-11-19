@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useConnectionState } from '../../connection/connection';
 import { PairingError } from '../../connection/pairing';
 import { pairingLinkFromParams, pairingLinkFromParts } from '../../connection/pairing-link';
@@ -12,6 +12,8 @@ import { TextField } from '../../ui/TextField';
 import { QrScanner } from './QrScanner';
 import { connectionNoticeMessage, pairingFailureMessage } from './pairing-messages';
 import type { PairingLink } from '../../connection/pairing-link';
+import type { ComponentRef } from 'react';
+import type { TextInput } from 'react-native';
 
 // Shown until a computer is paired. A person scans the QR code, or types the
 // address and the code. A pairing link that opens the app (from the system
@@ -26,6 +28,7 @@ export function PairScreen() {
 	const [ scanning, setScanning ] = useState( false );
 	const [ pairing, setPairing ] = useState( false );
 	const [ failure, setFailure ] = useState< string | null >( null );
+	const codeField = useRef< ComponentRef< typeof TextInput > >( null );
 
 	async function pair( link: PairingLink | null ) {
 		if ( ! link ) {
@@ -85,6 +88,7 @@ export function PairScreen() {
 	}
 
 	const notice = state.status === 'ready' ? state.notice : null;
+	const pairTyped = () => void pair( pairingLinkFromParts( { url: address, code } ) );
 
 	return (
 		<Screen>
@@ -109,6 +113,11 @@ export function PairScreen() {
 				autoCorrect={ false }
 				keyboardType="url"
 				editable={ ! pairing }
+				// The keyboard can cover the Pair button on a short screen, so the
+				// Return key goes on to the code, and from the code it pairs.
+				returnKeyType="next"
+				submitBehavior="submit"
+				onSubmitEditing={ () => codeField.current?.focus() }
 			/>
 			<TextField
 				label={ __( 'Pairing code' ) }
@@ -118,13 +127,16 @@ export function PairScreen() {
 				autoCapitalize="characters"
 				autoCorrect={ false }
 				editable={ ! pairing }
+				inputRef={ codeField }
+				returnKeyType="go"
+				onSubmitEditing={ pairTyped }
 			/>
 			{ failure && <Text color="destructive">{ failure }</Text> }
 			<Button
 				variant="secondary"
 				label={ pairing ? __( 'Pairing…' ) : __( 'Pair' ) }
 				disabled={ pairing }
-				onPress={ () => void pair( pairingLinkFromParts( { url: address, code } ) ) }
+				onPress={ pairTyped }
 			/>
 			<Text variant="caption" color="mutedForeground">
 				{ __(

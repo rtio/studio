@@ -3,16 +3,19 @@ import { Platform, StyleSheet, TextInput, View } from 'react-native';
 import { fonts, space } from '../theme/typography';
 import { useTheme } from '../theme/use-theme';
 import { Text } from './Text';
+import type { ComponentProps } from 'react';
 import type { TextInputProps } from 'react-native';
 
 interface TextFieldProps extends Omit< TextInputProps, 'style' | 'onFocus' | 'onBlur' > {
 	label: string;
+	// The input itself, for a screen that moves the focus to it.
+	inputRef?: ComponentProps< typeof TextInput >[ 'ref' ];
 }
 
 // A labelled one-line text field. The input is React Native's on both platforms.
 // The theme gives it the platform's colors, and the corner radius follows the
 // platform: Material's small corner on Android, a rounder one on iOS.
-export function TextField( { label, ...rest }: TextFieldProps ) {
+export function TextField( { label, inputRef, ...rest }: TextFieldProps ) {
 	const { colors } = useTheme();
 	const [ focused, setFocused ] = useState( false );
 
@@ -21,6 +24,7 @@ export function TextField( { label, ...rest }: TextFieldProps ) {
 			<Text variant="label">{ label }</Text>
 			<TextInput
 				{ ...rest }
+				ref={ inputRef }
 				accessibilityLabel={ label }
 				placeholderTextColor={ colors.placeholder }
 				cursorColor={ colors.accent }
