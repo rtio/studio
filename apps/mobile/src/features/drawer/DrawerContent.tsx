@@ -80,8 +80,9 @@ export function DrawerContent( { connection, onChatChosen, onOpenSettings }: Dra
 
 	function chooseChat( chat: ChatRow ) {
 		selectChat( chat.id );
-		// The drawer stays in memory while it is closed. Without this, the next
-		// time it opens it would still show the old search.
+		// The sliding drawer stays in memory while it is closed. Without this, the
+		// next time it opens it would still show the old search. The pinned drawer
+		// clears it too, so a fold never brings an old search back.
 		setQuery( '' );
 		onChatChosen();
 	}

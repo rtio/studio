@@ -18,6 +18,7 @@ import { IconButton } from '../../ui/IconButton';
 import { StatusDot } from '../../ui/StatusDot';
 import { Text } from '../../ui/Text';
 import { TopBarBackdrop } from '../../ui/TopBarBackdrop';
+import { useLayout } from '../../ui/use-layout';
 import { ChatView } from '../chat/ChatView';
 import { Composer } from '../chat/Composer';
 import { AppDrawer } from '../drawer/AppDrawer';
@@ -41,6 +42,7 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const router = useRouter();
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
+	const { drawerPinned, sideInsets } = useLayout();
 	const [ drawerOpen, setDrawerOpen ] = useState( false );
 	// The site the preview sheet is open on, if it is.
 	const [ previewSiteId, setPreviewSiteId ] = useState< string | null >( null );
@@ -95,8 +97,23 @@ function PairedHome( { connection }: { connection: Connection } ) {
 			: Promise.reject( new Error( 'No site' ) );
 	};
 
+	const capsule = (
+		<FloatingSurface style={ styles.capsule }>
+			{ site && <StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } /> }
+			<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
+				{ siteName }
+			</Text>
+			{ chat?.live && (
+				<Text variant="caption" color="warning">
+					{ __( 'Live' ) }
+				</Text>
+			) }
+		</FloatingSurface>
+	);
+
 	return (
 		<AppDrawer
+			pinned={ drawerPinned }
 			open={ drawerOpen }
 			onOpen={ openDrawer }
 			onClose={ closeDrawer }
@@ -120,7 +137,12 @@ function PairedHome( { connection }: { connection: Connection } ) {
 			>
 				{ /* Positions what floats here inside the space the keyboard leaves, and
 				keeps it out of the side safe areas. The page color fills them. */ }
-				<View style={ [ styles.screen, { marginLeft: insets.left, marginRight: insets.right } ] }>
+				<View
+					style={ [
+						styles.screen,
+						{ marginLeft: sideInsets.left, marginRight: sideInsets.right },
+					] }
+				>
 					<StatusBar style={ scheme === 'dark' ? 'light' : 'dark' } />
 					{ chatId ? (
 						<ChatView
@@ -164,32 +186,37 @@ function PairedHome( { connection }: { connection: Connection } ) {
 						{ /* The backdrop alone reaches the edges of the screen. */ }
 						<View
 							pointerEvents="none"
-							style={ [ StyleSheet.absoluteFill, { left: -insets.left, right: -insets.right } ] }
+							style={ [
+								StyleSheet.absoluteFill,
+								{ left: -sideInsets.left, right: -sideInsets.right },
+							] }
 						>
 							<TopBarBackdrop />
 						</View>
 						<View style={ styles.header }>
-							<IconButton icon={ Menu } label={ __( 'Open the menu' ) } onPress={ openDrawer } />
-							<Pressable
-								accessibilityRole="button"
-								accessibilityLabel={ __( 'Choose a site' ) }
-								onPress={ openDrawer }
-								style={ styles.capsulePress }
-							>
-								<FloatingSurface style={ styles.capsule }>
-									{ site && (
-										<StatusDot color={ site.running ? 'statusRunning' : 'mutedForeground' } />
-									) }
-									<Text variant="bodyStrong" numberOfLines={ 1 } style={ styles.capsuleText }>
-										{ siteName }
-									</Text>
-									{ chat?.live && (
-										<Text variant="caption" color="warning">
-											{ __( 'Live' ) }
-										</Text>
-									) }
-								</FloatingSurface>
-							</Pressable>
+							{ /* The pinned drawer is always there: nothing opens it, and the
+							capsule is a label. */ }
+							{ drawerPinned ? (
+								<View accessible accessibilityRole="text" style={ styles.capsulePress }>
+									{ capsule }
+								</View>
+							) : (
+								<>
+									<IconButton
+										icon={ Menu }
+										label={ __( 'Open the menu' ) }
+										onPress={ openDrawer }
+									/>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={ __( 'Choose a site' ) }
+										onPress={ openDrawer }
+										style={ styles.capsulePress }
+									>
+										{ capsule }
+									</Pressable>
+								</>
+							) }
 							<View style={ styles.actions }>
 								{ site && (
 									<IconButton
