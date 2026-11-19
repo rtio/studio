@@ -281,6 +281,18 @@ describe( 'Settings > Phone', () => {
 			expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://tailscale.com/download' );
 		} );
 
+		it( 'says the phone app on iPhone needs Tailscale HTTPS, not Tailnet', async () => {
+			await setup();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+
+			expect(
+				await screen.findByText(
+					'Encrypted by Tailscale, for your devices on Tailscale. The Studio phone app on iPhone needs Tailscale HTTPS instead.'
+				)
+			).toBeVisible();
+		} );
+
 		it( 'uses the connection picked, and closes the list', async () => {
 			const { connector } = await setupOn();
 

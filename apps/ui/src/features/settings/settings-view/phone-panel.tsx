@@ -44,7 +44,11 @@ function connectionDescription( kind: RemoteConnectionKind ): string {
 				'Encrypted, for your devices on Tailscale. Your computer’s name is in public certificate logs.'
 			);
 		case 'tailnet':
-			return __( 'Encrypted by Tailscale, for your devices on Tailscale.' );
+			// iOS allows the phone app plain HTTP only to local addresses, and a
+			// tailnet address is not one. Android allows it.
+			return __(
+				'Encrypted by Tailscale, for your devices on Tailscale. The Studio phone app on iPhone needs Tailscale HTTPS instead.'
+			);
 		case 'local':
 			return __( 'For phones on the same network as this computer. Not encrypted.' );
 	}

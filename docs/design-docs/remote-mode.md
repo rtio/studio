@@ -54,6 +54,7 @@ Codes and tokens are stored as SHA-256 hashes in `~/.studio/remote.json`, throug
 
 - A device token lets its holder send prompts, and the agent can run commands. Treat a paired device like a shell on this computer.
 - Over `local` the connection is HTTP and not encrypted: the pairing code and the token can be read by anyone on that network. `tailnet` is HTTP inside Tailscale's encryption, and `https` adds TLS.
+- The Studio phone app on iPhone cannot use `tailnet`: iOS's App Transport Security allows its plain HTTP only to local addresses (`NSAllowsLocalNetworking`), and a 100.x address is not one. On iPhone it uses `https`; Settings > Phone says so in Tailnet's description.
 - Behind `tailscale serve` every request comes from 127.0.0.1, so the pairing limit of 10 requests a minute per address is one limit for all callers. Programs on this computer can reach that loopback port; they still need a device token.
 - Changing the connection changes the address, so phones paired before pair again.
 - The run manager lives in the server process. A run started in the Desktop app does not stream to a phone, and the reverse. The chat appears on both after a reload.
