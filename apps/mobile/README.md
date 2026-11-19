@@ -139,6 +139,14 @@ npm run tokens
 
 A unit test fails when the generated file is older than `tokens.css`.
 
+## Logo
+
+The app's icon and splash screen come from the desktop app's icon, `apps/studio/assets/studio-app-icon.icon`. iOS uses that icon file itself. The Android icon layers and the splash images in `assets/` are drawn from it with a headless browser. After the desktop icon changes, run this from `apps/mobile`, then `npx expo prebuild --clean`:
+
+```bash
+npm run logo
+```
+
 ## Things to know
 
 - With Xcode 27, `npm run ios` (`expo run:ios`) ends with `CommandError: Simulator app did not open fast enough` after a successful build and install. The build worked if the log says `Build Succeeded`. Open the app from the simulator's home screen, or with `xcrun simctl openurl booted "exp+studio-mobile://?__expo_url=http%3A%2F%2F127.0.0.1%3A8097"`.

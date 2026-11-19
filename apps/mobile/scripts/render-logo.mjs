@@ -27,6 +27,10 @@ const IMAGES = [
 	{ file: 'android-icon-foreground.png', size: 1024, share: 0.5, color: '#222222' },
 	// For themed icons: Android colors it in and uses only its shape.
 	{ file: 'android-icon-monochrome.png', size: 1024, share: 0.5, color: '#000000' },
+	// The splash screen draws the mark 100 points wide, in the desktop icon's
+	// light and dark colors.
+	{ file: 'splash-icon-light.png', size: 512, share: 1, color: '#222222' },
+	{ file: 'splash-icon-dark.png', size: 512, share: 1, color: '#EEEEEE' },
 ];
 
 const browser = await chromium.launch();

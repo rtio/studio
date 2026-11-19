@@ -4,6 +4,7 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useConnectionState } from '../connection/connection';
@@ -12,6 +13,10 @@ import { queryClient } from '../data/query-client';
 import { startApp } from '../startup';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { useTheme } from '../theme/use-theme';
+
+// The splash screen, with the Studio logo, stays until the first screen can be
+// drawn.
+void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
 	return (
@@ -42,10 +47,17 @@ function App() {
 		syncLiveConnection( connection );
 	}, [ connection ] );
 
-	// Draw nothing but the page color until the fonts, the stored connection and
-	// the system settings are read. Then no screen flashes or changes shape. If
-	// the fonts cannot load, the app goes on with the system font.
-	if ( ! ( fontsLoaded || fontsFailed ) || ! started || state.status === 'loading' ) {
+	// Draw nothing but the page color, under the splash screen, until the fonts,
+	// the stored connection and the system settings are read. Then no screen
+	// flashes or changes shape. If the fonts cannot load, the app goes on with
+	// the system font.
+	const ready = ( fontsLoaded || fontsFailed ) && started && state.status !== 'loading';
+	useEffect( () => {
+		if ( ready ) {
+			SplashScreen.hide();
+		}
+	}, [ ready ] );
+	if ( ! ready ) {
 		return <View style={ { flex: 1, backgroundColor: colors.background } } />;
 	}
 

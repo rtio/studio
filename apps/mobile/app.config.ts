@@ -30,6 +30,17 @@ const config: ExpoConfig = {
 	},
 	plugins: [
 		'expo-router',
+		// The Studio logo on the app's page color, light and dark. Drawn by
+		// `npm run logo`.
+		[
+			'expo-splash-screen',
+			{
+				image: './assets/splash-icon-light.png',
+				imageWidth: 100,
+				backgroundColor: '#FFFFFF',
+				dark: { image: './assets/splash-icon-dark.png', backgroundColor: '#111111' },
+			},
+		],
 		// The paired computer serves plain HTTP at a LAN address, so Android must allow cleartext.
 		[ 'expo-build-properties', { android: { usesCleartextTraffic: true } } ],
 		// The app has no biometric gate, so it asks for no Face ID permission.
