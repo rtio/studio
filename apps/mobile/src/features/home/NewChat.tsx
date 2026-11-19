@@ -5,6 +5,7 @@ import { selectSite } from '../../data/selection';
 import { space } from '../../theme/typography';
 import { ChoiceChips } from '../../ui/ChoiceChips';
 import { ListRow } from '../../ui/ListRow';
+import { StudioLogo } from '../../ui/StudioLogo';
 import { Text } from '../../ui/Text';
 import { starterPrompts } from './starter-prompts';
 import type { Site } from '../../data/remote-schemas';
@@ -29,7 +30,10 @@ export function NewChat( { sites, siteId, topInset, bottomInset }: NewChatProps 
 				{ paddingTop: topInset + space[ 4 ], paddingBottom: bottomInset + space[ 4 ] },
 			] }
 		>
-			<Text variant="title">{ __( 'What should we build?' ) }</Text>
+			<View style={ styles.heading }>
+				<StudioLogo />
+				<Text variant="title">{ __( 'What should we build?' ) }</Text>
+			</View>
 			{ sites.length > 0 && (
 				<View style={ styles.section }>
 					<Text variant="label" color="mutedForeground">
@@ -64,5 +68,6 @@ export function NewChat( { sites, siteId, topInset, bottomInset }: NewChatProps 
 
 const styles = StyleSheet.create( {
 	body: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: space[ 5 ], gap: space[ 5 ] },
+	heading: { gap: space[ 4 ] },
 	section: { gap: space[ 2 ] },
 } );
