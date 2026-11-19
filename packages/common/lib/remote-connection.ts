@@ -97,6 +97,26 @@ export function pickRemoteConnection(
 	return { ok: false, kind: last, missing: missingForConnection( last, inputs ) ?? 'network' };
 }
 
+export interface RemoteConnectionOption {
+	kind: RemoteConnectionKind;
+	missing?: RemoteConnectionMissing;
+}
+
+// Each connection with what it still needs, and the one Automatic takes now.
+export function remoteConnectionOptions( inputs: RemoteConnectionInputs ): {
+	automatic?: RemoteConnectionKind;
+	options: RemoteConnectionOption[];
+} {
+	const choice = pickRemoteConnection( 'auto', inputs );
+	return {
+		automatic: choice.ok ? choice.kind : undefined,
+		options: REMOTE_CONNECTION_KINDS.map( ( kind ) => ( {
+			kind,
+			missing: missingForConnection( kind, inputs ),
+		} ) ),
+	};
+}
+
 export function remoteConnectionName( kind: RemoteConnectionKind ): string {
 	switch ( kind ) {
 		case 'https':

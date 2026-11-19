@@ -4,6 +4,7 @@ import {
 	isRemoteConnectionRequest,
 	missingForConnection,
 	pickRemoteConnection,
+	remoteConnectionOptions,
 	type RemoteConnectionInputs,
 } from '../remote-connection';
 
@@ -119,5 +120,24 @@ describe( 'describeMissingConnection', () => {
 		expect( describeMissingConnection( 'tailscale-https' ) ).toBe(
 			'HTTPS is not turned on for your tailnet in Tailscale.'
 		);
+	} );
+} );
+
+describe( 'remoteConnectionOptions', () => {
+	it( 'lists each connection with what it needs, and what Automatic takes', () => {
+		expect( remoteConnectionOptions( NO_HTTPS ) ).toEqual( {
+			automatic: 'tailnet',
+			options: [
+				{ kind: 'https', missing: 'tailscale-https' },
+				{ kind: 'tailnet', missing: undefined },
+				{ kind: 'local', missing: undefined },
+			],
+		} );
+	} );
+
+	it( 'has nothing for Automatic when no connection is ready', () => {
+		expect(
+			remoteConnectionOptions( { ...NO_TAILSCALE, lanAddress: undefined } ).automatic
+		).toBeUndefined();
 	} );
 } );
