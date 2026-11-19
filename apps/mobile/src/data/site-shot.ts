@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// A screenshot of a site, taken on the computer for the preview sheet
+// (`POST /api/sites/:id/screenshot`), in the phone's or the desktop's layout.
+export type ShotLayout = 'phone' | 'desktop';
+
 // Why the computer sent no image: the site is stopped, it has no browser to
 // take one, or taking it failed.
 type NoShotReason = 'stopped' | 'no-browser' | 'failed';

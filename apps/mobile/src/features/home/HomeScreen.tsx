@@ -1,13 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Menu, SquarePen } from 'lucide-react-native';
+import { Menu, MonitorSmartphone, SquarePen } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConnectionState } from '../../connection/connection';
 import { draftKey } from '../../data/drafts';
-import { runControl, startChat } from '../../data/live-connection';
+import { runControl, showSitePreview, startChat } from '../../data/live-connection';
 import { selectChat, selectSite, useSelectedChatId, useSelectedSiteId } from '../../data/selection';
 import { useChats, useLiveStatus, useSites } from '../../data/use-remote-data';
 import { space } from '../../theme/typography';
@@ -22,6 +22,7 @@ import { ChatView } from '../chat/ChatView';
 import { Composer } from '../chat/Composer';
 import { AppDrawer } from '../drawer/AppDrawer';
 import { DrawerContent } from '../drawer/DrawerContent';
+import { SitePreviewSheet } from '../preview/SitePreviewSheet';
 import { ConnectionLine } from './ConnectionLine';
 import { NewChat } from './NewChat';
 import type { Connection } from '../../connection/connection-store';
@@ -41,6 +42,8 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const { scheme, colors } = useTheme();
 	const insets = useSafeAreaInsets();
 	const [ drawerOpen, setDrawerOpen ] = useState( false );
+	// The site the preview sheet is open on, if it is.
+	const [ previewSiteId, setPreviewSiteId ] = useState< string | null >( null );
 	// The height of the header, which floats over the chat, and of the composer
 	// under it with the connection line.
 	const [ topHeight, setTopHeight ] = useState( 0 );
@@ -60,6 +63,19 @@ function PairedHome( { connection }: { connection: Connection } ) {
 	const siteId = chat ? chat.siteId : selectedSiteId;
 	const site = sites.data?.find( ( candidate ) => candidate.id === siteId ) ?? null;
 	const siteName = site?.name ?? chat?.siteName ?? __( 'All chats' );
+
+	// The preview takes a new screenshot each time it opens. It closes when the
+	// header names another site, or none.
+	const openPreview = () => {
+		if ( site ) {
+			showSitePreview( site.id );
+			setPreviewSiteId( site.id );
+		}
+	};
+	const closePreview = () => {
+		showSitePreview( null );
+		setPreviewSiteId( null );
+	};
 
 	// A new chat is for the site in the header.
 	const newChat = () => {
@@ -167,12 +183,29 @@ function PairedHome( { connection }: { connection: Connection } ) {
 									) }
 								</FloatingSurface>
 							</Pressable>
-							<IconButton icon={ SquarePen } label={ __( 'New chat' ) } onPress={ newChat } />
+							<View style={ styles.actions }>
+								{ site && (
+									<IconButton
+										icon={ MonitorSmartphone }
+										label={ __( 'Preview the site' ) }
+										onPress={ openPreview }
+									/>
+								) }
+								<IconButton icon={ SquarePen } label={ __( 'New chat' ) } onPress={ newChat } />
+							</View>
 						</View>
 					</View>
 				</View>
 			</KeyboardAvoidingView>
 			<ActionSheetHost />
+			{ site && (
+				<SitePreviewSheet
+					connection={ connection }
+					site={ site }
+					open={ previewSiteId === site.id }
+					onClose={ closePreview }
+				/>
+			) }
 		</AppDrawer>
 	);
 }
@@ -198,6 +231,7 @@ const styles = StyleSheet.create( {
 		paddingTop: space[ 2 ],
 	},
 	capsulePress: { flexShrink: 1 },
+	actions: { flexDirection: 'row', gap: space[ 2 ] },
 	capsule: {
 		minHeight: 44,
 		paddingHorizontal: space[ 4 ],

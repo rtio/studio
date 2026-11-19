@@ -113,6 +113,7 @@ The phone follows the rules of Studio's own composer, with the same run-state re
 - With no chat open, the screen offers the sites as chips and, once a site is picked, four starter prompts. A prompt fills the composer; it does not send.
 - The phone taps back when a message goes out, when a question waits and when a turn ends: one pattern when it ended well, another when it failed, nothing when someone stopped it. Settings has a switch for it.
 - When the link is not live, one line above the composer says why, with Try again, or Details when another computer answers. The composer keeps its text and does not send.
+- The button next to New chat opens a preview of the site in the header: a screenshot of its homepage, taken on the computer, in a phone or a desktop layout. A new one is taken when the sheet opens and on Refresh. A stopped site shows the screenshot the desktop app stored. Pinch to zoom on iOS. The screenshots stay in memory and go when the phone forgets the computer.
 - Settings shows the link's state and, while it is not live, when it last was. Copy diagnostics copies the app version, the computer's name and address, the link's state, when it was last live and the last problem. It never copies the token.
 
 ## Work without Studio

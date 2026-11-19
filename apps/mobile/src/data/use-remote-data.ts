@@ -4,10 +4,12 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { createConnectionClient } from '../connection/connection';
 import { listChats } from './chat-list';
 import { activityStore, liveStatusStore } from './live-connection';
-import { sessionsKey, sitesKey } from './query-keys';
+import { sessionsKey, siteShotKey, sitesKey, storedShotKey } from './query-keys';
 import { parseSessions, parseSites } from './remote-schemas';
+import { parseShot, parseStoredShot } from './site-shot';
 import type { ChatRow } from './chat-list';
 import type { LiveStatus } from './live-status';
+import type { ShotLayout } from './site-shot';
 import type { Connection } from '../connection/connection-store';
 
 // These requests carry the device token. They run only while the link is
@@ -64,6 +66,49 @@ export function useChats( connection: Connection ): {
 			}
 		},
 	};
+}
+
+// A screenshot of a running site in a layout, for the preview sheet. It is
+// taken only while the sheet shows it (`enabled`), when it has none, and
+// again when the shots are out of date (`showSitePreview`, the stream, the
+// refresh button). `dataUpdatedAt` is when it came.
+export function useSiteShot(
+	connection: Connection,
+	siteId: string,
+	layout: ShotLayout,
+	enabled: boolean
+) {
+	const whileLive = useWhileLive();
+	return useQuery( {
+		...whileLive,
+		enabled: whileLive.enabled && enabled,
+		queryKey: siteShotKey( connection, siteId, layout ),
+		queryFn: async () =>
+			parseShot(
+				await createConnectionClient( connection ).post(
+					`/api/sites/${ encodeURIComponent( siteId ) }/screenshot`,
+					{ layout }
+				)
+			),
+	} );
+}
+
+// The screenshot the desktop app stored for a site, for the preview sheet
+// while the site is stopped.
+export function useStoredShot( connection: Connection, siteId: string, enabled: boolean ) {
+	const whileLive = useWhileLive();
+	return useQuery( {
+		...whileLive,
+		enabled: whileLive.enabled && enabled,
+		queryKey: storedShotKey( connection, siteId ),
+		queryFn: async ( { signal } ) =>
+			parseStoredShot(
+				await createConnectionClient( connection ).get(
+					`/api/sites/${ encodeURIComponent( siteId ) }/thumbnail`,
+					{ signal }
+				)
+			),
+	} );
 }
 
 export function useLiveStatus(): LiveStatus {

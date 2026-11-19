@@ -25,6 +25,7 @@ import {
 	selectSite,
 	subscribeSelectedChat,
 } from './selection';
+import { openSiteShots } from './shot-cache';
 import type { LiveStatus } from './live-status';
 import type { Site } from './remote-schemas';
 import type { ActivityMap } from './run-activity';
@@ -69,6 +70,13 @@ export const runControl = createRunControl( {
 
 // Which events of the stream the person feels.
 const hapticMoments = createHapticMoments();
+
+// The preview sheet opened on a site, or closed (null).
+export function showSitePreview( siteId: string | null ): void {
+	if ( siteId && live ) {
+		openSiteShots( queryClient, live.connection, siteId );
+	}
+}
 
 // The open chat changes as soon as the person chooses a chat, before the
 // screen draws it, so a prompt sent to a chat just created shows in it.
@@ -169,6 +177,10 @@ export function syncLiveConnection( connection: Connection | null ): void {
 	drafts.clear();
 	connectionHistory.clear();
 	resetSelection();
+	// Screenshots of the computer's sites stay in memory only while it is
+	// paired.
+	queryClient.removeQueries( { queryKey: [ 'site-shot' ] } );
+	queryClient.removeQueries( { queryKey: [ 'stored-shot' ] } );
 	if ( ! connection ) {
 		liveStatusStore.set( 'off' );
 		return;
