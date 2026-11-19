@@ -1,5 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	SERVE_WATCHDOG,
@@ -205,4 +208,67 @@ describe( 'SERVE_WATCHDOG', () => {
 		},
 		15_000
 	);
+
+	// Tailscale's macOS installer puts a shell script on PATH that runs the app's
+	// binary as its child. Stopping only the script left that binary serving.
+	describe.skipIf( process.platform === 'win32' )( 'behind a wrapper script', () => {
+		function withWrapper( run: ( wrapper: string, serveRuns: () => boolean ) => Promise< void > ) {
+			const folder = mkdtempSync( path.join( tmpdir(), 'studio-serve-wrapper-' ) );
+			const wrapper = path.join( folder, 'tailscale' );
+			const marker = `studio-serve-wrapper-${ process.pid }-${ Date.now() }`;
+			// The line after the command keeps the shell from replacing itself with it.
+			writeFileSync(
+				wrapper,
+				`#!/bin/sh\n"${ process.execPath }" -e "setInterval( () => {}, 1000 ); // ${ marker }"\nexit $?\n`
+			);
+			chmodSync( wrapper, 0o755 );
+			const serveRuns = () => spawnSync( 'pgrep', [ '-f', `// ${ marker }` ] ).status === 0;
+			return run( wrapper, serveRuns ).finally( () => {
+				for ( const pid of String( spawnSync( 'pgrep', [ '-f', marker ] ).stdout ).split(
+					/\s+/
+				) ) {
+					if ( pid ) {
+						process.kill( Number( pid ), 'SIGKILL' );
+					}
+				}
+				rmSync( folder, { recursive: true, force: true } );
+			} );
+		}
+
+		it( 'ends what the wrapper started when remote mode stops it', async () => {
+			await withWrapper( async ( wrapper, serveRuns ) => {
+				const watchdog = spawnServe( wrapper, [] );
+				await vi.waitFor( () => expect( serveRuns() ).toBe( true ), { timeout: 5000 } );
+
+				watchdog.kill();
+
+				await vi.waitFor( () => expect( serveRuns() ).toBe( false ), { timeout: 5000 } );
+			} );
+		}, 15_000 );
+
+		it( 'ends what the wrapper started when remote mode is killed with SIGKILL', async () => {
+			await withWrapper( async ( wrapper, serveRuns ) => {
+				const watchdogArgs = [ '-e', SERVE_WATCHDOG, wrapper ];
+				const parent = spawn(
+					process.execPath,
+					[
+						'-e',
+						`require( 'node:child_process' ).spawn( process.execPath, ${ JSON.stringify(
+							watchdogArgs
+						) }, { stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ] } ); setInterval( () => {}, 1000 );`,
+					],
+					{ stdio: 'ignore' }
+				);
+				try {
+					await vi.waitFor( () => expect( serveRuns() ).toBe( true ), { timeout: 5000 } );
+
+					parent.kill( 'SIGKILL' );
+
+					await vi.waitFor( () => expect( serveRuns() ).toBe( false ), { timeout: 5000 } );
+				} finally {
+					parent.kill( 'SIGKILL' );
+				}
+			} );
+		}, 15_000 );
+	} );
 } );

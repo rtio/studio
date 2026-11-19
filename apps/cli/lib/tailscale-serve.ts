@@ -10,6 +10,10 @@ import type { EventEmitter } from 'node:events';
 // watchdog that holds an IPC channel to this process: the channel closes when
 // this process ends in any way, even `kill -9`, and the watchdog then ends
 // `tailscale serve`. The HTTPS address never outlives remote mode.
+//
+// The `tailscale` on PATH can be a shell script that runs the real binary as
+// its child (Tailscale's macOS installer puts one there). Outside Windows the
+// watchdog starts it in its own process group and ends the whole group.
 export interface TailscaleServe {
 	// Settles when the child ends, with its last error line if it printed one.
 	ended: Promise< string | undefined >;
@@ -29,11 +33,23 @@ type SpawnServe = ( file: string, args: string[] ) => ServeChild;
 export const SERVE_WATCHDOG = `
 const { spawn } = require( 'node:child_process' );
 const [ cli, ...args ] = process.argv.slice( 1 );
-const serve = spawn( cli, args, { stdio: [ 'ignore', 'ignore', 'inherit' ], windowsHide: true } );
+const group = process.platform !== 'win32';
+const serve = spawn( cli, args, {
+	stdio: [ 'ignore', 'ignore', 'inherit' ],
+	windowsHide: true,
+	detached: group,
+} );
 const stop = () => {
-	if ( serve.exitCode === null && serve.signalCode === null ) {
-		serve.kill();
+	if ( serve.exitCode !== null || serve.signalCode !== null ) {
+		return;
 	}
+	if ( ! group ) {
+		serve.kill();
+		return;
+	}
+	try {
+		process.kill( -serve.pid, 'SIGTERM' );
+	} catch {}
 };
 process.on( 'disconnect', stop );
 process.on( 'SIGTERM', stop );
